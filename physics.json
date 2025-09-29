@@ -1,0 +1,109 @@
+{
+  "chapterMetadata": {
+    "title": "Laws of Motion",
+    "subject": "Science (Physics)",
+    "strand": "Mechanics",
+    "grade": 10,
+    "learningObjectives": [
+      "Understand Newton's three laws of motion and their applications",
+      "Relate force, mass, and acceleration using the equation F = ma",
+      "Distinguish between balanced and unbalanced forces",
+      "Recognize real-life examples of inertia, momentum, and action-reaction"
+    ]
+  },
+  "prerequisites": [
+    "Knowledge of basic physical quantities like force, mass, and velocity",
+    "Familiarity with the concept of motion from previous classes"
+  ],
+  "sections": [
+    {
+      "title": "1.1 Newton's First Law of Motion",
+      "summary": "An object remains in a state of rest or uniform motion unless acted upon by an external force.",
+      "keyConcepts": [
+        {
+          "name": "Inertia",
+          "description": "The tendency of an object to resist a change in its state of motion.",
+          "properties": [
+            "Directly proportional to mass",
+            "Different types: inertia of rest, inertia of motion, inertia of direction"
+          ]
+        }
+      ]
+    },
+    {
+      "title": "1.2 Newton's Second Law of Motion",
+      "summary": "The acceleration of an object is directly proportional to the net force acting on it and inversely proportional to its mass.",
+      "keyConcepts": [
+        {
+          "name": "Force Equation",
+          "description": "F = ma (Force equals mass times acceleration).",
+          "properties": [
+            "Explains how objects accelerate",
+            "Basis for unit of force: Newton (N)"
+          ]
+        }
+      ]
+    },
+    {
+      "title": "1.3 Newton's Third Law of Motion",
+      "summary": "For every action, there is an equal and opposite reaction.",
+      "keyConcepts": [
+        {
+          "name": "Action-Reaction Pairs",
+          "description": "Forces that always exist in pairs acting on different bodies.",
+          "properties": [
+            "Equal in magnitude",
+            "Opposite in direction",
+            "Do not cancel each other"
+          ]
+        }
+      ]
+    }
+  ],
+  "examples": [
+    {
+      "equation": "A football remains at rest until kicked.",
+      "explanation": "Illustrates Newton’s First Law (inertia of rest)."
+    },
+    {
+      "equation": "A heavier object requires more force to accelerate.",
+      "explanation": "Illustrates Newton’s Second Law."
+    },
+    {
+      "equation": "Rocket propulsion works by expelling gases backward.",
+      "explanation": "Illustrates Newton’s Third Law."
+    }
+  ],
+  "exercises": [
+    "State Newton’s First Law with an example.",
+    "Calculate the force needed to accelerate a 5 kg mass at 2 m/s².",
+    "Identify the action-reaction pair when a person jumps off a boat."
+  ],
+  "vocabulary": [
+    {
+      "term": "Inertia",
+      "definition": "Tendency of a body to resist changes in motion."
+    },
+    {
+      "term": "Momentum",
+      "definition": "Product of mass and velocity (p = mv)."
+    },
+    {
+      "term": "Force",
+      "definition": "A push or pull that changes or tends to change the state of motion of an object."
+    }
+  ],
+  "misconceptions": [
+    "Many think a force is needed to keep an object moving, but in absence of friction, no force is required.",
+    "Some students confuse action-reaction forces as acting on the same object, but they act on different objects."
+  ],
+  "applications": [
+    "Seat belts in cars work due to inertia (First Law).",
+    "Sports like football, cricket, and baseball demonstrate Newton's Second Law.",
+    "Rocket launching is an application of Newton's Third Law."
+  ],
+  "heritage": [
+    "Sir Isaac Newton formulated the three laws of motion in 1687 in his work Principia Mathematica.",
+    "Ancient Indian texts like Vaisheshika Sutra also discussed early concepts of motion."
+  ]
+}

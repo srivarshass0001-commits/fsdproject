@@ -1,0 +1,1324 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Assignment Helper – College Chatbot</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            'sans': ['Inter', 'system-ui', 'Segoe UI', 'Roboto', 'Arial']
+          },
+          colors: {
+            primary: {
+              50: '#f0f9ff',
+              100: '#e0f2fe',
+              500: '#0ea5e9',
+              600: '#0284c7',
+              700: '#0369a1'
+            },
+            accent: {
+              50: '#fef3ff',
+              100: '#fae8ff',
+              500: '#a855f7',
+              600: '#9333ea',
+              700: '#7c3aed'
+            }
+          },
+          animation: {
+            'fade-in': 'fadeIn 0.3s ease-in-out',
+            'slide-up': 'slideUp 0.3s ease-out',
+            'pulse-gentle': 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite'
+          },
+          keyframes: {
+            fadeIn: {
+              '0%': { opacity: '0' },
+              '100%': { opacity: '1' }
+            },
+            slideUp: {
+              '0%': { transform: 'translateY(10px)', opacity: '0' },
+              '100%': { transform: 'translateY(0)', opacity: '1' }
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: rgba(0, 0, 0, 0.95);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+      opacity: 0;
+      visibility: hidden;
+      transition: all 0.3s ease;
+    }
+    
+    .modal-overlay.active {
+      opacity: 1;
+      visibility: visible;
+    }
+    
+    .modal-content {
+      background: white;
+      border-radius: 16px;
+      width: 98vw;
+      height: 98vh;
+      overflow-y: auto;
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+      transform: scale(0.95);
+      transition: all 0.3s ease;
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .modal-overlay.active .modal-content {
+      transform: scale(1);
+    }
+    
+    .quiz-question {
+      transition: all 0.3s ease;
+    }
+    
+    .quiz-question.fade-in {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    
+    .quiz-question.active {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    
+    .correct-answer {
+      background-color: #dcfce7;
+      border-color: #22c55e;
+    }
+    
+    .incorrect-answer {
+      background-color: #fee2e2;
+      border-color: #ef4444;
+    }
+    
+    .feedback-icon {
+      display: none;
+      margin-left: 8px;
+    }
+    
+    .show-feedback .feedback-icon {
+      display: inline-block;
+    }
+
+    .quiz-content-wrapper {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      padding: 2rem;
+    }
+
+    .quiz-question-container {
+      max-width: 800px;
+      width: 100%;
+      background: #f8fafc;
+      border-radius: 16px;
+      padding: 3rem;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+    }
+
+    .feedback-message {
+      margin-top: 1rem;
+      padding: 1rem;
+      border-radius: 8px;
+      font-weight: 600;
+      text-center;
+      display: none;
+    }
+
+    .feedback-correct {
+      background-color: #dcfce7;
+      color: #166534;
+      border: 1px solid #22c55e;
+    }
+
+    .feedback-incorrect {
+      background-color: #fee2e2;
+      color: #dc2626;
+      border: 1px solid #ef4444;
+    }
+
+    .disabled-option {
+      opacity: 0.6;
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body class="font-sans bg-gradient-to-br from-blue-50 via-white to-purple-50 min-h-screen">
+  <!-- Header -->
+  <header class="bg-white/80 backdrop-blur-lg border-b border-gray-200/50 sticky top-0 z-10">
+    <div class="max-w-7xl mx-auto px-6 py-4">
+      <div class="flex items-center gap-4">
+        <div class="w-12 h-12 bg-gradient-to-br from-primary-500 to-accent-500 rounded-2xl flex items-center justify-center shadow-lg">
+          <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path>
+          </svg>
+        </div>
+        <div>
+          <h1 class="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">
+            Assignment Helper
+          </h1>
+          <p class="text-gray-600 text-sm font-medium">AI-powered academic assistance for students</p>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-6 py-8">
+    <div class="grid lg:grid-cols-4 gap-8">
+      <!-- Sidebar -->
+      <aside class="lg:col-span-1">
+        <div class="bg-white rounded-2xl shadow-sm border border-gray-200/50 p-6 sticky top-24">
+          <div class="flex items-center gap-2 mb-6">
+            <div class="w-2 h-2 bg-green-400 rounded-full animate-pulse-gentle"></div>
+            <h2 class="font-semibold text-gray-900">Assignment Details</h2>
+          </div>
+          
+          <div class="space-y-5">
+            <div class="group">
+              <label class="block text-sm font-medium text-gray-700 mb-2">Course / Subject</label>
+              <input id="course" type="text" placeholder="e.g., Data Structures & Algorithms" 
+                     class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:border-primary-500 focus:ring-2 focus:ring-primary-100 transition-all duration-200 placeholder:text-gray-400" />
+            </div>
+
+            <div class="group">
+              <label class="block text-sm font-medium text-gray-700 mb-2">Assignment Type</label>
+              <div class="relative">
+                <select id="atype" class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:border-primary-500 focus:ring-2 focus:ring-primary-100 transition-all duration-200 appearance-none cursor-pointer">
+                  <option value="Essay / Report">📄 Essay / Report</option>
+                  <option value="Programming / Code">💻 Programming / Code</option>
+                  <option value="Lab / Practical">🔬 Lab / Practical</option>
+                  <option value="Project / Presentation">📊 Project / Presentation</option>
+                  <option value="Math / Proof">🔢 Math / Proof</option>
+                </select>
+                <svg class="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                </svg>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4">
+              <div class="group">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Deadline</label>
+                <input id="deadline" type="text" placeholder="Oct 15, 2025" 
+                       class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:border-primary-500 focus:ring-2 focus:ring-primary-100 transition-all duration-200 placeholder:text-gray-400" />
+              </div>
+              
+              <div class="group">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Length</label>
+                <input id="length" type="text" placeholder="1500 words" 
+                       class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:border-primary-500 focus:ring-2 focus:ring-primary-100 transition-all duration-200 placeholder:text-gray-400" />
+              </div>
+            </div>
+
+            <div class="group">
+              <label class="block text-sm font-medium text-gray-700 mb-2">Citation Style</label>
+              <div class="relative">
+                <select id="cstyle" class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:border-primary-500 focus:ring-2 focus:ring-primary-100 transition-all duration-200 appearance-none cursor-pointer">
+                  <option value="APA">APA Style</option>
+                  <option value="IEEE">IEEE</option>
+                  <option value="MLA">MLA</option>
+                  <option value="Chicago">Chicago</option>
+                  <option value="None">None</option>
+                </select>
+                <svg class="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                </svg>
+              </div>
+            </div>
+          </div>
+
+          <div class="mt-6 p-4 bg-blue-50 rounded-xl border border-blue-100">
+            <div class="flex items-start gap-3">
+              <svg class="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+              </svg>
+              <p class="text-sm text-blue-700 leading-relaxed">
+                <strong>Pro Tip:</strong> Include specific requirements, rubrics, and constraints for more tailored assistance.
+              </p>
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      <!-- Main Chat Area -->
+      <section class="lg:col-span-3">
+        <div class="bg-white rounded-2xl shadow-sm border border-gray-200/50 h-[600px] flex flex-col">
+          <!-- Chat Header -->
+          <div class="flex items-center justify-between p-6 border-b border-gray-100">
+            <div class="flex items-center gap-3">
+              <div class="w-8 h-8 bg-gradient-to-br from-green-400 to-emerald-500 rounded-lg flex items-center justify-center">
+                <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path>
+                </svg>
+              </div>
+              <div>
+                <h3 class="font-semibold text-gray-900">Chat Assistant</h3>
+                <p class="text-xs text-gray-500">Ready to help with your assignment</p>
+              </div>
+            </div>
+            
+            <div class="flex gap-2">
+              <button id="downloadPdf" class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors duration-200 text-sm font-medium">
+                <svg class="w-4 h-4 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                </svg>
+                Download PDF
+              </button>
+              <button id="clear" class="px-4 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors duration-200 text-sm font-medium">
+                <svg class="w-4 h-4 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                </svg>
+                Clear Chat
+              </button>
+            </div>
+          </div>
+
+          <!-- Messages Area -->
+          <div id="messages" class="flex-1 p-6 overflow-y-auto space-y-4 bg-gray-50/30">
+            <div class="flex items-center justify-center py-8">
+              <div class="text-center">
+                <div class="w-16 h-16 bg-gradient-to-br from-primary-100 to-accent-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                  <svg class="w-8 h-8 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+                  </svg>
+                </div>
+                <h4 class="font-semibold text-gray-900 mb-2">Ready to help with your assignment!</h4>
+                <p class="text-gray-600 text-sm max-w-md">
+                  Fill out the assignment details on the left, then click "Get Help Now" or "Action Plan" to receive assistance.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Input Area -->
+          <div class="border-t border-gray-100 p-6">
+            <div class="space-y-4">
+              <textarea id="prompt" 
+                        placeholder="Add any additional notes or specific instructions here..."
+                        class="w-full h-24 px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl resize-none focus:bg-white focus:border-primary-500 focus:ring-2 focus:ring-primary-100 transition-all duration-200 placeholder:text-gray-400"></textarea>
+              
+              <div class="flex items-center gap-3">
+                <button id="send" 
+                        class="flex-1 bg-gradient-to-r from-primary-500 to-primary-600 text-white px-6 py-3 rounded-xl font-semibold hover:from-primary-600 hover:to-primary-700 transform hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 shadow-lg shadow-primary-500/25">
+                  <svg class="w-5 h-5 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
+                  </svg>
+                  Get Help Now
+                </button>
+                
+                <button id="plan"
+                        class="px-6 py-3 bg-white border-2 border-accent-500 text-accent-600 rounded-xl font-semibold hover:bg-accent-50 hover:border-accent-600 transition-all duration-200">
+                  <svg class="w-5 h-5 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path>
+                  </svg>
+                  Action Plan
+                </button>
+
+                <button id="quiz"
+                        class="px-6 py-3 bg-white border-2 border-green-500 text-green-600 rounded-xl font-semibold hover:bg-green-50 hover:border-green-600 transition-all duration-200">
+                  <svg class="w-5 h-5 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                  </svg>
+                  Generate Quiz 
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Academic Integrity Notice -->
+        <div class="mt-6 p-4 bg-amber-50 border border-amber-200 rounded-xl">
+          <div class="flex items-start gap-3">
+            <svg class="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.734 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
+            </svg>
+            <div>
+              <h4 class="font-semibold text-amber-800 mb-1">Academic Integrity Reminder</h4>
+              <p class="text-sm text-amber-700">
+                This tool provides guidance, outlines, and educational support. Always follow your institution's academic integrity policies and use this assistance responsibly.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <!-- Full-Screen Quiz Modal -->
+  <div id="quizModal" class="modal-overlay">
+    <div class="modal-content">
+      <div class="p-6 border-b border-gray-200 flex justify-between items-center bg-gradient-to-r from-primary-500 to-accent-500 text-white rounded-t-2xl">
+        <h3 class="text-2xl font-bold">Interactive Quiz</h3>
+        <button id="closeQuizModal" class="text-white hover:text-gray-200 transition-colors">
+          <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+          </svg>
+        </button>
+      </div>
+      
+      <div id="quizContent" class="quiz-content-wrapper">
+        <!-- Quiz content will be dynamically inserted here -->
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ---------- Configuration / Prompt template ----------
+    const API_URL = "https://chat.ivislabs.in";
+    const API_KEY = "sk-fa739ed9ed404e238962f58ac6682644";
+
+    const defaultSystemPrompt = `You are Assignment Helper: a helpful, accurate, and academically responsible assistant for college students. Behaviors:\n- Ask clarifying questions when assignment details (format, length, rubric, deadline, languages, deliverables) are missing.\n- Provide a clear solution outline first (title, objective, structure, sections/headings or steps), then expand into detailed content.\n- When asked for code, produce well-documented code blocks with comments, inputs/outputs, and test examples. Mention complexity for algorithms.\n- For essays/reports: include introduction, literature/related work, method/approach, results/discussion, conclusion, and references.\n- Provide example citations and a bibliography in the requested citation style (APA / IEEE / MLA / Chicago). Always include sources where possible.\n- Give an action plan/breakdown when deadline is provided (milestones and estimated time per milestone).\n- Warn about plagiarism and suggest how to paraphrase & cite; never provide content that encourages cheating.\n- If the question is ambiguous, summarize assumptions you used to generate your answer.\n- Use step-by-step explanations for difficult concepts and include worked examples when helpful.\n- Keep language clear and suitable for college students; avoid unnecessary jargon.\nOutput format preferences when possible: 1) Short outline, 2) Detailed step-by-step, 3) Code (if relevant), 4) References and next steps / study plan.`;
+
+    const messagesEl = document.getElementById('messages');
+    const promptEl = document.getElementById('prompt');
+    const sendBtn = document.getElementById('send');
+    const clearBtn = document.getElementById('clear');
+    const planBtn = document.getElementById('plan');
+    const quizBtn = document.getElementById('quiz');
+    const downloadPdfBtn = document.getElementById('downloadPdf');
+    const quizModal = document.getElementById('quizModal');
+    const quizContent = document.getElementById('quizContent');
+    const closeQuizModal = document.getElementById('closeQuizModal');
+
+    // Quiz state variables
+    let currentQuiz = null;
+    let currentQuestionIndex = 0;
+    let userAnswers = [];
+    let quizCompleted = false;
+    let currentQuestionAnswered = false;
+
+    function clearWelcomeMessage() {
+      const welcomeMsg = messagesEl.querySelector('.text-center');
+      if (welcomeMsg && welcomeMsg.closest('.py-8')) {
+        welcomeMsg.closest('.py-8').remove();
+      }
+    }
+
+    function formatResponse(text) {
+      // Convert markdown-style **bold** to HTML <strong> tags
+      text = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+      
+      // Convert markdown-style ### headings to HTML <h3> tags
+      text = text.replace(/^###\s+(.*)$/gm, '<h3 class="text-lg font-semibold mt-4 mb-2 text-gray-800">$1</h3>');
+      
+      // Convert markdown-style ## headings to HTML <h2> tags
+      text = text.replace(/^##\s+(.*)$/gm, '<h2 class="text-xl font-bold mt-5 mb-3 text-gray-900">$1</h2>');
+      
+      // Convert markdown-style # headings to HTML <h1> tags
+      text = text.replace(/^#\s+(.*)$/gm, '<h1 class="text-2xl font-bold mt-6 mb-4 text-gray-900">$1</h1>');
+      
+      // Convert markdown-style bullet points to HTML unordered lists
+      // First, handle multi-line bullet lists
+      let inList = false;
+      let lines = text.split('\n');
+      let processedLines = [];
+      
+      for (let i = 0; i < lines.length; i++) {
+        let line = lines[i];
+        if (/^(\s*[-*+])\s+/.test(line)) {
+          if (!inList) {
+            processedLines.push('<ul class="list-disc pl-5 space-y-1 mt-2 mb-3">');
+            inList = true;
+          }
+          line = line.replace(/^(\s*[-*+])\s+/, '<li>');
+          line += '</li>';
+          processedLines.push(line);
+        } else {
+          if (inList) {
+            processedLines.push('</ul>');
+            inList = false;
+          }
+          processedLines.push(line);
+        }
+      }
+      if (inList) {
+        processedLines.push('</ul>');
+      }
+      
+      text = processedLines.join('\n');
+      
+      // Convert numbered lists
+      inList = false;
+      lines = text.split('\n');
+      processedLines = [];
+      
+      for (let i = 0; i < lines.length; i++) {
+        let line = lines[i];
+        if (/^(\s*\d+\.)/.test(line)) {
+          if (!inList) {
+            processedLines.push('<ol class="list-decimal pl-5 space-y-1 mt-2 mb-3">');
+            inList = true;
+          }
+          line = line.replace(/^(\s*\d+\.)\s+/, '<li>');
+          line += '</li>';
+          processedLines.push(line);
+        } else {
+          if (inList) {
+            processedLines.push('</ol>');
+            inList = false;
+          }
+          processedLines.push(line);
+        }
+      }
+      if (inList) {
+        processedLines.push('</ol>');
+      }
+      
+      text = processedLines.join('\n');
+      
+      // Handle code blocks
+      text = text.replace(/```(\w+)?\n([\s\S]*?)```/g, function(match, lang, code) {
+        return `<pre class="bg-gray-100 p-4 rounded-lg overflow-x-auto my-4"><code class="text-sm">${code}</code></pre>`;
+      });
+      
+      // Handle inline code
+      text = text.replace(/`([^`]+)`/g, '<code class="bg-gray-100 px-1 py-0.5 rounded text-sm">$1</code>');
+      
+      // Convert line breaks
+      text = text.replace(/\n/g, '<br>');
+      
+      return text;
+    }
+
+    function appendMessage(text, who = 'bot') {
+      clearWelcomeMessage();
+      
+      const messageDiv = document.createElement('div');
+      messageDiv.className = `flex ${who === 'user' ? 'justify-end' : 'justify-start'} animate-fade-in`;
+      
+      const bubble = document.createElement('div');
+      bubble.className = `max-w-[85%] px-4 py-3 rounded-2xl shadow-sm ${
+        who === 'user' 
+          ? 'bg-gradient-to-br from-primary-500 to-primary-600 text-white ml-12' 
+          : 'bg-white border border-gray-200 text-gray-800 mr-12'
+      }`;
+      
+      if (who === 'bot') {
+        const avatar = document.createElement('div');
+        avatar.className = 'w-8 h-8 bg-gradient-to-br from-emerald-400 to-emerald-500 rounded-lg flex items-center justify-center mr-3 mt-1 flex-shrink-0';
+        avatar.innerHTML = `<svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path></svg>`;
+        
+        messageDiv.appendChild(avatar);
+      }
+      
+      // Check if this is a quiz generation request - show the quiz directly instead of the text
+      if (text.includes('quiz') || text.includes('Quiz')) {
+        // Generate sample quiz
+        generateSampleQuiz();
+        return;
+      }
+      
+      // Format the text before adding to bubble
+      bubble.innerHTML = formatResponse(text);
+      messageDiv.appendChild(bubble);
+      messagesEl.appendChild(messageDiv);
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+    }
+
+    function generateSampleQuiz() {
+      const course = document.getElementById('course').value.trim();
+      const atype = document.getElementById('atype').value;
+      
+      // Generate a comprehensive quiz with all question types
+      const sampleQuizData = [
+        // Multiple Choice Questions
+        {
+          question: `What is the primary purpose of ${atype || 'this assignment type'}?`,
+          type: 'multiple_choice',
+          options: [
+            'To test memorization skills',
+            'To develop critical thinking and problem-solving abilities',
+            'To fill up class time',
+            'To make students work harder'
+          ],
+          correctAnswer: 1,
+          explanation: 'The primary purpose is to develop critical thinking and problem-solving abilities.'
+        },
+        {
+          question: `Which citation style is most commonly used in ${course || 'academic writing'}?`,
+          type: 'multiple_choice',
+          options: [
+            'APA Style',
+            'MLA Style',
+            'Chicago Style',
+            'IEEE Style'
+          ],
+          correctAnswer: 0,
+          explanation: 'APA Style is widely used across many academic disciplines.'
+        },
+        {
+          question: 'What is the most important aspect of academic integrity?',
+          type: 'multiple_choice',
+          options: [
+            'Getting good grades',
+            'Following rules blindly',
+            'Honest representation of your work and proper attribution',
+            'Avoiding all collaboration'
+          ],
+          correctAnswer: 2,
+          explanation: 'Academic integrity centers on honest representation and proper attribution.'
+        },
+        
+        // True/False Questions
+        {
+          question: 'Plagiarism only occurs when you copy text word-for-word without citation.',
+          type: 'true_false',
+          correctAnswer: 1, // False
+          explanation: 'Plagiarism includes paraphrasing without citation, using ideas without attribution, and self-plagiarism.'
+        },
+        {
+          question: 'Primary sources are always more reliable than secondary sources.',
+          type: 'true_false',
+          correctAnswer: 1, // False
+          explanation: 'Both primary and secondary sources have their value; reliability depends on quality and context.'
+        },
+        {
+          question: 'A thesis statement should appear in the introduction of an essay.',
+          type: 'true_false',
+          correctAnswer: 0, // True
+          explanation: 'The thesis statement typically appears at the end of the introduction paragraph.'
+        },
+        
+        // Short Answer Questions (One word/phrase)
+        {
+          question: 'What is the term for a brief summary of a research paper (usually 150-250 words)?',
+          type: 'short_answer',
+          correctAnswer: 'abstract',
+          explanation: 'An abstract provides a concise summary of the main points of a research paper.'
+        },
+        {
+          question: 'What citation element comes after the author\'s name in APA format?',
+          type: 'short_answer',
+          correctAnswer: 'year',
+          explanation: 'In APA format, the publication year follows the author\'s name in parentheses.'
+        },
+        {
+          question: 'What do you call the list of sources at the end of an APA paper?',
+          type: 'short_answer',
+          correctAnswer: 'references',
+          explanation: 'APA papers end with a "References" page listing all cited sources.'
+        },
+        
+        // Sentence Answer Questions
+        {
+          question: 'Explain in one sentence what makes a source credible.',
+          type: 'sentence_answer',
+          correctAnswer: 'A credible source is authored by qualified experts, published by reputable organizations, contains accurate information that can be verified, and is current and relevant to the topic.',
+          explanation: 'Credible sources combine expertise, reputation, accuracy, and relevance.'
+        },
+        {
+          question: 'In one sentence, describe the difference between paraphrasing and summarizing.',
+          type: 'sentence_answer',
+          correctAnswer: 'Paraphrasing restates specific ideas from a source in your own words while maintaining the same length, while summarizing condenses the main points of a source into a shorter form.',
+          explanation: 'The key difference is length and scope - paraphrasing maintains length while summarizing condenses.'
+        }
+      ];
+      
+      showQuizModal(sampleQuizData);
+    }
+
+    function showQuizModal(quizData) {
+      currentQuiz = quizData;
+      currentQuestionIndex = 0;
+      userAnswers = new Array(quizData.length).fill(null);
+      quizCompleted = false;
+      currentQuestionAnswered = false;
+      
+      quizModal.classList.add('active');
+      displayQuizQuestion();
+    }
+
+    function closeQuizModalFunc() {
+      quizModal.classList.remove('active');
+    }
+
+    function calculateSimilarity(str1, str2) {
+      if (!str1 || !str2) return 0;
+      
+      str1 = str1.toLowerCase().trim();
+      str2 = str2.toLowerCase().trim();
+      
+      if (str1 === str2) return 1;
+      
+      // Simple word overlap calculation
+      const words1 = str1.split(/\s+/);
+      const words2 = str2.split(/\s+/);
+      const allWords = new Set([...words1, ...words2]);
+      
+      let matches = 0;
+      for (const word of allWords) {
+        if (words1.includes(word) && words2.includes(word)) {
+          matches++;
+        }
+      }
+      
+      return matches / Math.max(words1.length, words2.length);
+    }
+
+    function checkAnswer(questionIndex, userAnswer) {
+      const question = currentQuiz[questionIndex];
+      let isCorrect = false;
+      let similarity = 0;
+      
+      if (question.type === 'multiple_choice' || question.type === 'true_false') {
+        isCorrect = userAnswer === question.correctAnswer;
+        similarity = isCorrect ? 1 : 0;
+      } else if (question.type === 'short_answer') {
+        const correctAnswer = question.correctAnswer.toLowerCase().trim();
+        const userAnswerText = userAnswer.toLowerCase().trim();
+        
+        // Check for exact match or high similarity
+        if (correctAnswer === userAnswerText) {
+          isCorrect = true;
+          similarity = 1;
+        } else {
+          similarity = calculateSimilarity(correctAnswer, userAnswerText);
+          isCorrect = similarity >= 0.7; // 70% similarity threshold
+        }
+      } else if (question.type === 'sentence_answer') {
+        similarity = calculateSimilarity(question.correctAnswer, userAnswer);
+        isCorrect = similarity >= 0.7; // 70% similarity threshold
+      }
+      
+      return { isCorrect, similarity };
+    }
+
+    function displayQuizQuestion() {
+      quizContent.innerHTML = '';
+      currentQuestionAnswered = false;
+      
+      const question = currentQuiz[currentQuestionIndex];
+      
+      const questionContainer = document.createElement('div');
+      questionContainer.className = 'quiz-question-container';
+      
+      let quizHtml = `
+        <div class="mb-6">
+          <div class="flex justify-between items-center mb-6">
+            <h4 class="font-bold text-gray-800 text-2xl">Question ${currentQuestionIndex + 1} of ${currentQuiz.length}</h4>
+            <div class="flex items-center gap-4">
+              <span class="text-lg text-gray-600 bg-gray-100 px-4 py-2 rounded-full font-medium">
+                ${question.type.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+              </span>
+              <div class="w-12 h-12 bg-gradient-to-br from-primary-500 to-accent-500 rounded-full flex items-center justify-center text-white font-bold text-lg">
+                ${currentQuestionIndex + 1}
+              </div>
+            </div>
+          </div>
+          <h5 class="text-2xl font-semibold text-gray-900 mb-8 leading-relaxed">${question.question}</h5>
+      `;
+      
+      if (question.type === 'multiple_choice') {
+        quizHtml += `<div class="space-y-4">`;
+        for (let i = 0; i < question.options.length; i++) {
+          const option = question.options[i];
+          const optionId = `quiz-option-${currentQuestionIndex}-${i}`;
+          
+          quizHtml += `
+            <div class="quiz-option-container">
+              <label class="flex items-center p-6 bg-white border-2 border-gray-200 rounded-xl cursor-pointer hover:bg-gray-50 hover:border-primary-300 transition-all group text-lg">
+                <input type="radio" name="quiz-question-${currentQuestionIndex}" id="${optionId}" class="quiz-option h-5 w-5 text-primary-600 focus:ring-primary-500" data-option-index="${i}">
+                <span class="ml-4 text-gray-800 font-medium flex-1">${String.fromCharCode(65 + i)}. ${option}</span>
+              </label>
+            </div>
+          `;
+        }
+        quizHtml += `</div>`;
+      } else if (question.type === 'true_false') {
+        quizHtml += `
+          <div class="space-y-4">
+            <div class="quiz-option-container">
+              <label class="flex items-center p-6 bg-white border-2 border-gray-200 rounded-xl cursor-pointer hover:bg-gray-50 hover:border-primary-300 transition-all group text-lg">
+                <input type="radio" name="quiz-question-${currentQuestionIndex}" id="quiz-option-${currentQuestionIndex}-0" class="quiz-option h-5 w-5 text-primary-600 focus:ring-primary-500" data-option-index="0">
+                <span class="ml-4 text-gray-800 font-medium flex-1">A. True</span>
+              </label>
+            </div>
+            <div class="quiz-option-container">
+              <label class="flex items-center p-6 bg-white border-2 border-gray-200 rounded-xl cursor-pointer hover:bg-gray-50 hover:border-primary-300 transition-all group text-lg">
+                <input type="radio" name="quiz-question-${currentQuestionIndex}" id="quiz-option-${currentQuestionIndex}-1" class="quiz-option h-5 w-5 text-primary-600 focus:ring-primary-500" data-option-index="1">
+                <span class="ml-4 text-gray-800 font-medium flex-1">B. False</span>
+              </label>
+            </div>
+          </div>
+        `;
+      } else if (question.type === 'short_answer') {
+        quizHtml += `
+          <div class="mb-6">
+            <input type="text" id="short-answer-${currentQuestionIndex}" placeholder="Type your answer here (one word or short phrase)..." class="w-full px-6 py-4 text-lg border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all">
+          </div>
+        `;
+      } else if (question.type === 'sentence_answer') {
+        quizHtml += `
+          <div class="mb-6">
+            <textarea id="sentence-answer-${currentQuestionIndex}" placeholder="Write your answer in one or two sentences..." rows="3" class="w-full px-6 py-4 text-lg border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500 resize-none transition-all"></textarea>
+          </div>
+        `;
+      }
+      
+      quizHtml += `
+          <div id="feedback-message-${currentQuestionIndex}" class="feedback-message"></div>
+          
+          <div class="mt-8 flex justify-between items-center">
+            <button id="prev-question" class="px-8 py-4 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-xl transition-colors duration-200 text-lg font-medium ${currentQuestionIndex === 0 ? 'hidden' : ''}">
+              ← Previous
+            </button>
+            <div class="flex gap-4">
+              <button id="check-answer" class="px-8 py-4 bg-blue-500 hover:bg-blue-600 text-white rounded-xl transition-colors duration-200 text-lg font-medium">
+                Check Answer
+              </button>
+              <button id="next-question" class="px-8 py-4 bg-primary-500 hover:bg-primary-600 text-white rounded-xl transition-colors duration-200 text-lg font-medium opacity-50 cursor-not-allowed" disabled>
+                ${currentQuestionIndex === currentQuiz.length - 1 ? 'Finish Quiz →' : 'Next Question →'}
+              </button>
+            </div>
+          </div>
+        </div>
+      `;
+      
+      questionContainer.innerHTML = quizHtml;
+      quizContent.appendChild(questionContainer);
+      
+      // Add event listeners
+      document.getElementById('check-answer')?.addEventListener('click', handleCheckAnswer);
+      document.getElementById('next-question')?.addEventListener('click', handleNextQuestion);
+      document.getElementById('prev-question')?.addEventListener('click', handlePrevQuestion);
+      
+      // Add real-time input listeners for text inputs
+      const shortAnswerInput = document.getElementById(`short-answer-${currentQuestionIndex}`);
+      if (shortAnswerInput) {
+        shortAnswerInput.addEventListener('input', function() {
+          if (this.value.trim().length > 0) {
+            document.getElementById('check-answer').disabled = false;
+            document.getElementById('check-answer').classList.remove('opacity-50', 'cursor-not-allowed');
+          }
+        });
+      }
+      
+      const sentenceAnswerInput = document.getElementById(`sentence-answer-${currentQuestionIndex}`);
+      if (sentenceAnswerInput) {
+        sentenceAnswerInput.addEventListener('input', function() {
+          if (this.value.trim().length > 0) {
+            document.getElementById('check-answer').disabled = false;
+            document.getElementById('check-answer').classList.remove('opacity-50', 'cursor-not-allowed');
+          }
+        });
+      }
+      
+      // Add event listeners for radio button changes
+      const radioButtons = quizContent.querySelectorAll('.quiz-option');
+      radioButtons.forEach(radio => {
+        radio.addEventListener('change', function() {
+          document.getElementById('check-answer').disabled = false;
+          document.getElementById('check-answer').classList.remove('opacity-50', 'cursor-not-allowed');
+        });
+      });
+    }
+
+    function handleCheckAnswer() {
+      const question = currentQuiz[currentQuestionIndex];
+      let userAnswer = null;
+      
+      if (question.type === 'multiple_choice' || question.type === 'true_false') {
+        const selectedOption = quizContent.querySelector(`input[name="quiz-question-${currentQuestionIndex}"]:checked`);
+        if (selectedOption) {
+          userAnswer = parseInt(selectedOption.dataset.optionIndex);
+        }
+      } else if (question.type === 'short_answer') {
+        const shortAnswerInput = document.getElementById(`short-answer-${currentQuestionIndex}`);
+        if (shortAnswerInput) {
+          userAnswer = shortAnswerInput.value.trim();
+        }
+      } else if (question.type === 'sentence_answer') {
+        const sentenceAnswerInput = document.getElementById(`sentence-answer-${currentQuestionIndex}`);
+        if (sentenceAnswerInput) {
+          userAnswer = sentenceAnswerInput.value.trim();
+        }
+      }
+      
+      if (userAnswer === null || userAnswer === '') {
+        return;
+      }
+      
+      const result = checkAnswer(currentQuestionIndex, userAnswer);
+      userAnswers[currentQuestionIndex] = userAnswer;
+      
+      // Show feedback
+      const feedbackMessage = document.getElementById(`feedback-message-${currentQuestionIndex}`);
+      feedbackMessage.style.display = 'block';
+      
+      if (result.isCorrect) {
+        feedbackMessage.className = 'feedback-message feedback-correct';
+        feedbackMessage.innerHTML = `
+          <div class="flex items-center justify-center gap-2 text-lg">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+            </svg>
+            Excellent! Your answer is correct. 
+            ${question.explanation ? `<br><small class="text-sm mt-2 opacity-80">${question.explanation}</small>` : ''}
+          </div>
+        `;
+        currentQuestionAnswered = true;
+        
+        // Enable next button
+        const nextButton = document.getElementById('next-question');
+        nextButton.disabled = false;
+        nextButton.classList.remove('opacity-50', 'cursor-not-allowed');
+        
+        // Hide check answer button
+        const checkButton = document.getElementById('check-answer');
+        checkButton.style.display = 'none';
+        
+        // Disable input fields
+        const inputs = quizContent.querySelectorAll('input, textarea');
+        inputs.forEach(input => {
+          input.disabled = true;
+          input.classList.add('disabled-option');
+        });
+        
+      } else {
+        const similarityPercentage = Math.round(result.similarity * 100);
+        feedbackMessage.className = 'feedback-message feedback-incorrect';
+        feedbackMessage.innerHTML = `
+          <div class="text-lg">
+            <div class="flex items-center justify-center gap-2 mb-2">
+              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+              </svg>
+              Not quite right. ${similarityPercentage > 30 ? `You're ${similarityPercentage}% there!` : 'Try again!'} 
+            </div>
+            <div class="text-sm mt-2 opacity-80">
+              ${similarityPercentage > 50 ? 'You\'re on the right track, but try to be more specific.' : 'Think about the key concepts and try again.'}
+              ${question.explanation ? `<br><br><strong>Hint:</strong> ${question.explanation.split('.')[0]}.` : ''}
+            </div>
+          </div>
+        `;
+      }
+    }
+
+    function handleNextQuestion() {
+      if (!currentQuestionAnswered) {
+        return;
+      }
+      
+      if (currentQuestionIndex < currentQuiz.length - 1) {
+        currentQuestionIndex++;
+        displayQuizQuestion();
+      } else {
+        showQuizResults();
+      }
+    }
+
+    function handlePrevQuestion() {
+      if (currentQuestionIndex > 0) {
+        currentQuestionIndex--;
+        displayQuizQuestion();
+        
+        // If previous question was answered correctly, show that state
+        if (userAnswers[currentQuestionIndex] !== null) {
+          setTimeout(() => {
+            const result = checkAnswer(currentQuestionIndex, userAnswers[currentQuestionIndex]);
+            if (result.isCorrect) {
+              document.getElementById('check-answer').click();
+            }
+          }, 100);
+        }
+      }
+    }
+
+    function showQuizResults() {
+      quizCompleted = true;
+      quizContent.innerHTML = '';
+      
+      let correctCount = 0;
+      for (let i = 0; i < currentQuiz.length; i++) {
+        const question = currentQuiz[i];
+        const userAnswer = userAnswers[i];
+        const result = checkAnswer(i, userAnswer);
+        if (result.isCorrect) {
+          correctCount++;
+        }
+      }
+      
+      const percentage = Math.round((correctCount / currentQuiz.length) * 100);
+      
+      let resultsHtml = `
+        <div class="quiz-question-container text-center">
+          <div class="mb-8">
+            <h4 class="font-bold text-4xl text-gray-800 mb-6">Quiz Complete!</h4>
+            <div class="mb-8">
+              <div class="text-6xl font-bold text-primary-600 mb-2">${correctCount} / ${currentQuiz.length}</div>
+              <div class="text-2xl text-gray-600 mb-4">Correct Answers</div>
+              <div class="text-3xl font-semibold ${percentage >= 70 ? 'text-green-600' : percentage >= 50 ? 'text-yellow-600' : 'text-red-600'}">
+                ${percentage}%
+              </div>
+            </div>
+            
+            <div class="mb-8 p-6 rounded-xl ${percentage >= 70 ? 'bg-green-100 text-green-800' : percentage >= 50 ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'}">
+              <h5 class="text-xl font-semibold mb-2">
+                ${percentage >= 70 ? '🎉 Excellent Work!' : percentage >= 50 ? '👍 Good Effort!' : '📚 Keep Learning!'}
+              </h5>
+              <p class="text-lg">
+                ${percentage >= 70 ? 'You have a strong understanding of the concepts!' : 
+                  percentage >= 50 ? 'You\'re on the right track. Review the areas you missed.' : 
+                  'Consider reviewing the material and trying again.'}
+              </p>
+            </div>
+            
+            <div class="flex justify-center gap-6">
+              <button id="restart-quiz" class="px-8 py-4 bg-primary-500 hover:bg-primary-600 text-white rounded-xl font-semibold transition-all duration-200 text-lg">
+                Take Quiz Again
+              </button>
+              <button id="close-results" class="px-8 py-4 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-xl font-semibold transition-all duration-200 text-lg">
+                Close Quiz
+              </button>
+            </div>
+          </div>
+        </div>
+      `;
+      
+      quizContent.innerHTML = resultsHtml;
+      
+      document.getElementById('restart-quiz')?.addEventListener('click', function() {
+        currentQuestionIndex = 0;
+        userAnswers = new Array(currentQuiz.length).fill(null);
+        quizCompleted = false;
+        currentQuestionAnswered = false;
+        displayQuizQuestion();
+      });
+      
+      document.getElementById('close-results')?.addEventListener('click', closeQuizModalFunc);
+    }
+
+    function showTypingIndicator() {
+      clearWelcomeMessage();
+      
+      const typingDiv = document.createElement('div');
+      typingDiv.className = 'flex justify-start animate-fade-in typing-indicator';
+      typingDiv.innerHTML = `
+        <div class="w-8 h-8 bg-gradient-to-br from-emerald-400 to-emerald-500 rounded-lg flex items-center justify-center mr-3 mt-1 flex-shrink-0">
+          <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path></svg>
+        </div>
+        <div class="bg-white border border-gray-200 px-4 py-3 rounded-2xl shadow-sm">
+          <div class="flex space-x-1">
+            <div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+            <div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 0.1s"></div>
+            <div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 0.2s"></div>
+          </div>
+        </div>
+      `;
+      messagesEl.appendChild(typingDiv);
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+    }
+
+    function removeTypingIndicator() {
+      const typing = messagesEl.querySelector('.typing-indicator');
+      if (typing) typing.remove();
+    }
+
+    function buildUserPrompt() {
+      const course = document.getElementById('course').value.trim();
+      const atype = document.getElementById('atype').value;
+      const deadline = document.getElementById('deadline').value.trim();
+      const length = document.getElementById('length').value.trim();
+      const cstyle = document.getElementById('cstyle').value;
+      const body = promptEl.value.trim();
+
+      let meta = [];
+      if (course) meta.push(`Course: ${course}`);
+      if (atype) meta.push(`Type: ${atype}`);
+      if (deadline) meta.push(`Deadline: ${deadline}`);
+      if (length) meta.push(`Length: ${length}`);
+      if (cstyle && cstyle !== 'None') meta.push(`Citation style: ${cstyle}`);
+
+      const metaText = meta.length ? ('\n\n[Assignment metadata]\n' + meta.join('\n')) : '';
+      const userPrompt = `${body}${metaText}\n\nPlease first produce a concise outline (3-8 bullet points), then give a detailed solution. Include references and a short action plan for completing the assignment.`;
+      return userPrompt;
+    }
+
+    async function sendRequest(userText) {
+      appendMessage(userText, 'user');
+      showTypingIndicator();
+
+      const sys = defaultSystemPrompt;
+      const payload = {
+        model: 'llama3.2:latest',
+        messages: [
+          { role: 'system', content: sys },
+          { role: 'user', content: userText }
+        ],
+        temperature: 0.25,
+        max_tokens: 2000
+      };
+
+      try {
+        const headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${API_KEY}` };
+        const res = await axios.post(`${API_URL}/api/chat/completions`, payload, { headers });
+
+        removeTypingIndicator();
+
+        let reply = '';
+        if (res.data && res.data.choices && res.data.choices.length) {
+          const choice = res.data.choices[0];
+          if (choice.message && choice.message.content) reply = choice.message.content;
+          else if (choice.text) reply = choice.text;
+        } else if (res.data && res.data.response) {
+          reply = res.data.response;
+        } else {
+          reply = JSON.stringify(res.data);
+        }
+          
+        appendMessage(reply, 'bot');
+      } catch (err) {
+        console.error(err);
+        removeTypingIndicator();
+        const msg = (err.response && err.response.data) ? JSON.stringify(err.response.data) : err.message;
+        appendMessage('⚠ Error: ' + msg, 'bot');
+      }
+    }
+
+    sendBtn.addEventListener('click', async () => {
+      const userPrompt = buildUserPrompt();
+      await sendRequest(userPrompt);
+      promptEl.value = '';
+    });
+
+    // Quiz button now generates a sample quiz instead of making an API call
+    quizBtn.addEventListener('click', () => {
+      generateSampleQuiz();
+      promptEl.value = '';
+    });
+
+    clearBtn.addEventListener('click', () => {
+      currentQuiz = null;
+      currentQuestionIndex = 0;
+      userAnswers = [];
+      quizCompleted = false;
+      currentQuestionAnswered = false;
+      
+      messagesEl.innerHTML = `
+        <div class="flex items-center justify-center py-8">
+          <div class="text-center">
+            <div class="w-16 h-16 bg-gradient-to-br from-primary-100 to-accent-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <svg class="w-8 h-8 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+              </svg>
+            </div>
+            <h4 class="font-semibold text-gray-900 mb-2">Ready to help with your assignment!</h4>
+            <p class="text-gray-600 text-sm max-w-md">
+              Fill out the assignment details on the left, then click "Get Help Now" or "Action Plan" to receive assistance.
+            </p>
+          </div>
+        </div>
+      `;
+    });
+
+    planBtn.addEventListener('click', async () => {
+      const userPrompt = buildUserPrompt() + '\n\nPlease produce a milestone-based action plan (with dates relative to the deadline if a deadline is given).';
+      await sendRequest(userPrompt);
+      promptEl.value = '';
+    });
+
+    // Add PDF download functionality
+    downloadPdfBtn.addEventListener('click', () => {
+      // Check if there are any messages (other than the welcome message)
+      const messages = messagesEl.querySelectorAll('.flex:not(.typing-indicator)');
+      if (messages.length === 0) {
+        alert('No chat messages to download. Please have a conversation first.');
+        return;
+      }
+      
+      // Create a temporary element for PDF generation
+      const pdfContent = document.createElement('div');
+      pdfContent.style.padding = '20px';
+      pdfContent.style.fontFamily = 'Arial, sans-serif';
+      
+      // Add title
+      const title = document.createElement('h1');
+      title.textContent = 'Assignment Helper Chat';
+      title.style.textAlign = 'center';
+      title.style.marginBottom = '30px';
+      title.style.color = '#333';
+      pdfContent.appendChild(title);
+      
+      // Add assignment details
+      const detailsTitle = document.createElement('h2');
+      detailsTitle.textContent = 'Assignment Details';
+      detailsTitle.style.marginTop = '30px';
+      detailsTitle.style.marginBottom = '15px';
+      detailsTitle.style.color = '#555';
+      pdfContent.appendChild(detailsTitle);
+      
+      const detailsList = document.createElement('ul');
+      detailsList.style.listStyle = 'none';
+      detailsList.style.padding = '0';
+      
+      const course = document.getElementById('course').value.trim();
+      const atype = document.getElementById('atype').value;
+      const deadline = document.getElementById('deadline').value.trim();
+      const length = document.getElementById('length').value.trim();
+      const cstyle = document.getElementById('cstyle').value;
+      
+      if (course) {
+        const courseItem = document.createElement('li');
+        courseItem.innerHTML = `<strong>Course:</strong> ${course}`;
+        detailsList.appendChild(courseItem);
+      }
+      
+      if (atype) {
+        const atypeItem = document.createElement('li');
+        atypeItem.innerHTML = `<strong>Type:</strong> ${atype}`;
+        detailsList.appendChild(atypeItem);
+      }
+      
+      if (deadline) {
+        const deadlineItem = document.createElement('li');
+        deadlineItem.innerHTML = `<strong>Deadline:</strong> ${deadline}`;
+        detailsList.appendChild(deadlineItem);
+      }
+      
+      if (length) {
+        const lengthItem = document.createElement('li');
+        lengthItem.innerHTML = `<strong>Length:</strong> ${length}`;
+        detailsList.appendChild(lengthItem);
+      }
+      
+      if (cstyle && cstyle !== 'None') {
+        const cstyleItem = document.createElement('li');
+        cstyleItem.innerHTML = `<strong>Citation Style:</strong> ${cstyle}`;
+        detailsList.appendChild(cstyleItem);
+      }
+      
+      pdfContent.appendChild(detailsList);
+      
+      // Add chat messages
+      const chatTitle = document.createElement('h2');
+      chatTitle.textContent = 'Chat Conversation';
+      chatTitle.style.marginTop = '30px';
+      chatTitle.style.marginBottom = '15px';
+      chatTitle.style.color = '#555';
+      pdfContent.appendChild(chatTitle);
+      
+      // Clone all messages to the PDF content
+      messages.forEach(message => {
+        const clonedMessage = message.cloneNode(true);
+        
+        // Style the cloned message for PDF
+        if (message.classList.contains('justify-end')) {
+          // User message
+          const bubble = clonedMessage.querySelector('div.bg-gradient-to-br');
+          if (bubble) {
+            bubble.style.background = '#0284c7';
+            bubble.style.color = 'white';
+            bubble.style.borderRadius = '15px';
+            bubble.style.padding = '10px 15px';
+            bubble.style.marginLeft = 'auto';
+            bubble.style.marginRight = '0';
+          }
+        } else {
+          // Bot message
+          const bubble = clonedMessage.querySelector('div.bg-white');
+          if (bubble) {
+            bubble.style.background = '#f5f5f5';
+            bubble.style.color = '#333';
+            bubble.style.border = '1px solid #ddd';
+            bubble.style.borderRadius = '15px';
+            bubble.style.padding = '10px 15px';
+            bubble.style.marginRight = 'auto';
+            bubble.style.marginLeft = '0';
+          }
+          // Remove avatar for cleaner PDF
+          const avatar = clonedMessage.querySelector('div.bg-gradient-to-br');
+          if (avatar) {
+            avatar.remove();
+          }
+        }
+        
+        // Remove animations
+        clonedMessage.classList.remove('animate-fade-in');
+        
+        pdfContent.appendChild(clonedMessage);
+      });
+      
+      // Generate PDF
+      const opt = {
+        margin: 1,
+        filename: 'assignment_helper_chat.pdf',
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2 },
+        jsPDF: { unit: 'cm', format: 'a4', orientation: 'portrait' }
+      };
+      
+      // Show loading state
+      downloadPdfBtn.disabled = true;
+      downloadPdfBtn.innerHTML = `
+        <svg class="w-4 h-4 inline mr-2 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+        </svg>
+        Generating PDF...
+      `;
+      
+      // Generate and download PDF
+      html2pdf().set(opt).from(pdfContent).save().then(() => {
+        // Reset button state
+        downloadPdfBtn.disabled = false;
+        downloadPdfBtn.innerHTML = `
+          <svg class="w-4 h-4 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+          </svg>
+          Download PDF
+        `;
+      });
+    });
+
+    // Add keyboard shortcut
+    promptEl.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        sendBtn.click();
+      }
+    });
+
+    // Close quiz modal
+    closeQuizModal.addEventListener('click', closeQuizModalFunc);
+    
+    // Close modal when clicking outside
+    quizModal.addEventListener('click', function(e) {
+      if (e.target === quizModal) {
+        closeQuizModalFunc();
+      }
+    });
+    
+    // Close modal with Escape key
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape' && quizModal.classList.contains('active')) {
+        closeQuizModalFunc();
+      }
+    });
+  </script>
+</body>
+</html>

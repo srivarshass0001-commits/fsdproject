@@ -1,0 +1,1570 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chemistry Study App - Dynamic JSON Loader</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .file-upload-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .file-upload-overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .file-upload-modal {
+            background: white;
+            padding: 40px;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 500px;
+            width: 90%;
+            text-align: center;
+        }
+
+        .file-upload-area {
+            border: 2px dashed #3182ce;
+            border-radius: 12px;
+            padding: 40px 20px;
+            margin: 20px 0;
+            background: #f7fafc;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .file-upload-area:hover {
+            border-color: #2c5282;
+            background: #edf2f7;
+        }
+
+        .file-upload-area.dragover {
+            border-color: #38a169;
+            background: #f0fff4;
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .upload-icon {
+            font-size: 48px;
+            color: #3182ce;
+            margin-bottom: 15px;
+        }
+
+        .app-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            display: flex;
+            min-height: 90vh;
+        }
+
+        .sidebar {
+            width: 350px;
+            background: #f8fafc;
+            border-right: 1px solid #e2e8f0;
+            padding: 30px 0;
+            overflow-y: auto;
+        }
+
+        .sidebar-header {
+            padding: 0 30px 30px;
+            border-bottom: 1px solid #e2e8f0;
+            margin-bottom: 30px;
+        }
+
+        .sidebar-header h1 {
+            font-size: 24px;
+            color: #2d3748;
+            margin-bottom: 8px;
+        }
+
+        .sidebar-header .subtitle {
+            color: #718096;
+            font-size: 14px;
+            margin-bottom: 15px;
+        }
+
+        .file-controls {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .file-control-btn {
+            flex: 1;
+            padding: 8px 12px;
+            border: 1px solid #3182ce;
+            background: white;
+            color: #3182ce;
+            border-radius: 6px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .file-control-btn:hover {
+            background: #3182ce;
+            color: white;
+        }
+
+        .file-control-btn.upload {
+            background: #3182ce;
+            color: white;
+        }
+
+        .file-control-btn.upload:hover {
+            background: #2c5282;
+        }
+
+        .current-file {
+            background: #e6fffa;
+            color: #234e52;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            margin-top: 10px;
+            text-align: center;
+        }
+
+        .nav-item {
+            margin-bottom: 8px;
+        }
+
+        .nav-button {
+            width: 100%;
+            padding: 15px 30px;
+            background: none;
+            border: none;
+            text-align: left;
+            color: #4a5568;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .nav-button:hover {
+            background: #e2e8f0;
+            color: #2d3748;
+        }
+
+        .nav-button.active {
+            background: #3182ce;
+            color: white;
+        }
+
+        .dropdown-icon {
+            transition: transform 0.3s ease;
+            font-size: 12px;
+        }
+
+        .dropdown-icon.rotated {
+            transform: rotate(180deg);
+        }
+
+        .dropdown-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease;
+            background: #edf2f7;
+        }
+
+        .dropdown-content.open {
+            max-height: 500px;
+        }
+
+        .dropdown-item {
+            padding: 12px 50px;
+            color: #4a5568;
+            cursor: pointer;
+            font-size: 14px;
+            border-left: 3px solid transparent;
+            transition: all 0.2s ease;
+        }
+
+        .dropdown-item:hover {
+            background: #e2e8f0;
+            border-left-color: #3182ce;
+        }
+
+        .dropdown-item.active {
+            background: #bee3f8;
+            border-left-color: #3182ce;
+            color: #2c5282;
+        }
+
+        .main-content {
+            flex: 1;
+            padding: 30px 40px;
+            overflow-y: auto;
+        }
+
+        .content-header {
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #e2e8f0;
+        }
+
+        .content-title {
+            font-size: 28px;
+            color: #2d3748;
+            margin-bottom: 10px;
+        }
+
+        .content-meta {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            margin-bottom: 15px;
+        }
+
+        .meta-item {
+            background: #e6fffa;
+            color: #234e52;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .section-content {
+            line-height: 1.7;
+            color: #4a5568;
+        }
+
+        .concept-card {
+            background: #f7fafc;
+            border-left: 4px solid #3182ce;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+        }
+
+        .concept-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #2d3748;
+            margin-bottom: 10px;
+        }
+
+        .concept-description {
+            color: #4a5568;
+            margin-bottom: 15px;
+        }
+
+        .concept-properties {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 10px;
+            margin: 15px 0;
+        }
+
+        .property-item {
+            background: white;
+            padding: 10px 15px;
+            border-radius: 6px;
+            border: 1px solid #e2e8f0;
+            font-size: 14px;
+            color: #4a5568;
+        }
+
+        .example-box {
+            background: #fff5f5;
+            border: 1px solid #fed7d7;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 8px;
+        }
+
+        .example-title {
+            font-weight: 600;
+            color: #c53030;
+            margin-bottom: 8px;
+        }
+
+        .steps-container {
+            margin: 20px 0;
+        }
+
+        .step-item {
+            background: white;
+            border: 1px solid #e2e8f0;
+            padding: 20px;
+            margin: 10px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        .step-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .step-number {
+            background: #3182ce;
+            color: white;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            margin-right: 15px;
+        }
+
+        .step-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #2d3748;
+        }
+
+        .objectives-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+
+        .objective-item {
+            background: #f0fff4;
+            border: 1px solid #c6f6d5;
+            padding: 15px;
+            border-radius: 8px;
+            color: #2f855a;
+        }
+
+        .formula-box {
+            background: #1a202c;
+            color: #e2e8f0;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            margin: 10px 0;
+            text-align: center;
+            font-size: 16px;
+        }
+
+        .loading {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 200px;
+            font-size: 18px;
+            color: #718096;
+        }
+
+        .error {
+            background: #fed7d7;
+            color: #c53030;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            text-align: center;
+        }
+
+        .success {
+            background: #c6f6d5;
+            color: #2f855a;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+            text-align: center;
+        }
+
+        .search-box {
+            padding: 0 30px;
+            margin-bottom: 20px;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 12px 15px;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 14px;
+            outline: none;
+            transition: border-color 0.3s ease;
+        }
+
+        .search-input:focus {
+            border-color: #3182ce;
+        }
+
+        .exercise-card {
+            background: #fffbf0;
+            border: 1px solid #fbd38d;
+            padding: 20px;
+            margin: 15px 0;
+            border-radius: 8px;
+        }
+
+        .exercise-type {
+            background: #ed8936;
+            color: white;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            display: inline-block;
+            margin-bottom: 10px;
+        }
+
+        .vocabulary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+
+        .vocab-card {
+            background: #fafafa;
+            border: 1px solid #e0e0e0;
+            padding: 15px;
+            border-radius: 8px;
+        }
+
+        .vocab-term {
+            font-weight: 600;
+            color: #2d3748;
+            margin-bottom: 8px;
+            font-size: 16px;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s ease;
+            margin: 5px;
+        }
+
+        .btn-primary {
+            background: #3182ce;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #2c5282;
+        }
+
+        .btn-secondary {
+            background: #e2e8f0;
+            color: #4a5568;
+        }
+
+        .btn-secondary:hover {
+            background: #cbd5e0;
+        }
+
+        @media (max-width: 768px) {
+            .app-container {
+                flex-direction: column;
+                height: auto;
+            }
+            
+            .sidebar {
+                width: 100%;
+                max-height: 400px;
+            }
+            
+            .main-content {
+                padding: 20px;
+            }
+            
+            .content-meta {
+                flex-direction: column;
+                gap: 10px;
+            }
+
+            .file-controls {
+                flex-direction: column;
+            }
+        }
+
+        /* Fun Animations for Children */
+@keyframes bounce {
+    0%, 20%, 53%, 80%, 100% { transform: translate3d(0,0,0); }
+    40%, 43% { transform: translate3d(0,-30px,0); }
+    70% { transform: translate3d(0,-15px,0); }
+    90% { transform: translate3d(0,-4px,0); }
+}
+
+@keyframes wiggle {
+    0%, 7% { transform: rotateZ(0); }
+    15% { transform: rotateZ(-15deg); }
+    20% { transform: rotateZ(10deg); }
+    25% { transform: rotateZ(-10deg); }
+    30% { transform: rotateZ(6deg); }
+    35% { transform: rotateZ(-4deg); }
+    40%, 100% { transform: rotateZ(0); }
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translate3d(0, 40px, 0);
+    }
+    to {
+        opacity: 1;
+        transform: translate3d(0, 0, 0);
+    }
+}
+
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+    100% { transform: scale(1); }
+}
+
+@keyframes popIn {
+    0% {
+        opacity: 0;
+        transform: scale(0.3);
+    }
+    50% {
+        opacity: 1;
+        transform: scale(1.05);
+    }
+    70% {
+        transform: scale(0.9);
+    }
+    100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+@keyframes sparkle {
+    0%, 100% { 
+        opacity: 0;
+        transform: scale(0);
+    }
+    50% { 
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+/* Character Animations */
+.study-buddy {
+    position: absolute;
+    font-size: 40px;
+    z-index: 100;
+    animation: bounce 2s infinite;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.study-buddy:hover {
+    animation: wiggle 0.5s ease-in-out;
+    transform: scale(1.2);
+}
+
+.study-buddy.scientist {
+    right: 20px;
+    top: 20px;
+}
+
+.study-buddy.student {
+    right: 80px;
+    top: 20px;
+}
+
+/* Enhanced card animations */
+.concept-card {
+    animation: fadeInUp 0.6s ease-out;
+    transition: all 0.3s ease;
+}
+
+.concept-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+}
+
+.example-box {
+    animation: popIn 0.8s ease-out;
+    position: relative;
+    overflow: hidden;
+}
+
+.example-box::before {
+    content: "💡";
+    position: absolute;
+    top: 10px;
+    right: 15px;
+    font-size: 24px;
+    animation: pulse 2s infinite;
+}
+
+.exercise-card {
+    animation: fadeInUp 0.7s ease-out;
+    transition: all 0.3s ease;
+}
+
+.exercise-card:hover {
+    transform: translateX(10px);
+    border-left: 5px solid #ed8936;
+}
+
+.vocab-card {
+    animation: popIn 0.5s ease-out;
+    transition: all 0.3s ease;
+}
+
+.vocab-card:hover {
+    transform: rotateY(5deg) translateZ(50px);
+    box-shadow: 0 15px 30px rgba(0,0,0,0.2);
+}
+
+/* Sparkle effect */
+.sparkle {
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    background: #ffd700;
+    border-radius: 50%;
+    animation: sparkle 1.5s infinite;
+    pointer-events: none;
+}
+
+/* Loading animations */
+.loading-spinner {
+    display: inline-block;
+    width: 40px;
+    height: 40px;
+    border: 4px solid #e2e8f0;
+    border-radius: 50%;
+    border-top-color: #3182ce;
+    animation: spin 1s ease-in-out infinite;
+    margin-right: 10px;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* Success celebration */
+.celebration {
+    animation: bounce 0.6s ease-in-out;
+}
+
+/* Delayed animations for staggered effect */
+.concept-card:nth-child(1) { animation-delay: 0.1s; }
+.concept-card:nth-child(2) { animation-delay: 0.2s; }
+.concept-card:nth-child(3) { animation-delay: 0.3s; }
+
+.example-box:nth-child(1) { animation-delay: 0.2s; }
+.example-box:nth-child(2) { animation-delay: 0.4s; }
+.example-box:nth-child(3) { animation-delay: 0.6s; }
+    </style>
+</head>
+<body>
+    <!-- File Upload Overlay -->
+    <div class="file-upload-overlay" id="fileUploadOverlay">
+        <div class="file-upload-modal">
+            <h2 style="margin-bottom: 20px; color: #2d3748;">📁 Upload JSON File</h2>
+            <div class="file-upload-area" id="fileUploadArea">
+                <div class="upload-icon">📄</div>
+                <p style="margin-bottom: 10px; font-weight: 600;">Drag and drop your JSON file here</p>
+                <p style="color: #718096; font-size: 14px;">or click to browse files</p>
+            </div>
+            <input type="file" id="fileInput" class="file-input" accept=".json">
+            <div style="margin-top: 20px;">
+                <button class="btn btn-secondary" onclick="app.closeFileUpload()">Cancel</button>
+                <button class="btn btn-primary" onclick="document.getElementById('fileInput').click()">Browse Files</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="app-container">
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <h1>Chemistry Study App</h1>
+                <div class="subtitle" id="chapterTitle">Loading...</div>
+                
+                <div class="file-controls">
+                    <button class="file-control-btn" onclick="app.loadFromUrl()">📁 Load File</button>
+                    <button class="file-control-btn upload" onclick="app.showFileUpload()">⬆ Upload</button>
+                </div>
+                
+                <div class="current-file" id="currentFile">No file loaded</div>
+            </div>
+            
+            <div class="search-box">
+                <input type="text" class="search-input" placeholder="Search content..." id="searchInput">
+            </div>
+
+            <nav id="navigation">
+                <div class="loading">Load a JSON file to begin</div>
+            </nav>
+        </div>
+
+        <main class="main-content">
+            <div id="contentArea">
+                <div class="loading">
+                    <div style="text-align: center;">
+                        <h2 style="margin-bottom: 20px;">📚 Welcome to Chemistry Study App</h2>
+                        <p style="margin-bottom: 20px;">Load a JSON file to start studying!</p>
+                        <button class="btn btn-primary" onclick="app.showFileUpload()">Upload JSON File</button>
+                        <button class="btn btn-secondary" onclick="app.loadFromUrl()">Load from URL</button>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        class StudyApp {
+            constructor() {
+                this.chapterData = null;
+                this.currentSection = 'overview';
+                this.searchTerm = '';
+                this.currentFileName = 'chapter1.json'; // Default file
+                this.init();
+            }
+
+            async init() {
+                this.setupEventListeners();
+                // Try to load default file on startup
+                await this.loadData(this.currentFileName);
+            }
+
+            setupEventListeners() {
+                // Search functionality
+                document.getElementById('searchInput').addEventListener('input', (e) => {
+                    this.searchTerm = e.target.value.toLowerCase();
+                    this.filterContent();
+                });
+
+                // File upload handling
+                const fileInput = document.getElementById('fileInput');
+                const fileUploadArea = document.getElementById('fileUploadArea');
+
+                fileInput.addEventListener('change', (e) => {
+                    if (e.target.files.length > 0) {
+                        this.handleFileUpload(e.target.files[0]);
+                    }
+                });
+
+                // Drag and drop functionality
+                fileUploadArea.addEventListener('click', () => {
+                    fileInput.click();
+                });
+
+                fileUploadArea.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    fileUploadArea.classList.add('dragover');
+                });
+
+                fileUploadArea.addEventListener('dragleave', (e) => {
+                    e.preventDefault();
+                    fileUploadArea.classList.remove('dragover');
+                });
+
+                fileUploadArea.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    fileUploadArea.classList.remove('dragover');
+                    
+                    const files = e.dataTransfer.files;
+                    if (files.length > 0 && files[0].type === 'application/json') {
+                        this.handleFileUpload(files[0]);
+                    } else {
+                        this.showMessage('Please select a valid JSON file.', 'error');
+                    }
+                });
+            }
+
+            showFileUpload() {
+                document.getElementById('fileUploadOverlay').classList.add('active');
+            }
+
+            closeFileUpload() {
+                document.getElementById('fileUploadOverlay').classList.remove('active');
+            }
+
+            async loadFromUrl() {
+                const fileName = prompt('Enter JSON file name (e.g., chapter1.json, chapter2.json):', this.currentFileName);
+                if (fileName && fileName.trim()) {
+                    await this.loadData(fileName.trim());
+                }
+            }
+
+            async handleFileUpload(file) {
+                try {
+                    console.log('📁 Processing uploaded file:', file.name);
+                    
+                    if (!file.type.includes('json') && !file.name.endsWith('.json')) {
+                        throw new Error('Please select a valid JSON file');
+                    }
+
+                    const text = await this.readFile(file);
+                    const jsonData = JSON.parse(text);
+                    
+                    // Validate the JSON structure
+                    if (!this.validateJsonStructure(jsonData)) {
+                        throw new Error('Invalid JSON structure. Please ensure your file contains proper chapter data.');
+                    }
+
+                    this.chapterData = jsonData;
+                    this.currentFileName = file.name;
+                    
+                    // Update UI
+                    this.updateCurrentFile(file.name);
+                    this.updateSubtitle();
+                    this.renderNavigation();
+                    this.renderOverview();
+                    this.closeFileUpload();
+                    
+                    this.showMessage(`✅ Successfully loaded ${file.name}`, 'success');
+                    console.log('✅ File loaded successfully:', jsonData);
+
+                } catch (error) {
+                    console.error('❌ Error processing file:', error);
+                    this.showMessage(`Error loading file: ${error.message}`, 'error');
+                }
+            }
+
+            readFile(file) {
+                return new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = (e) => resolve(e.target.result);
+                    reader.onerror = (e) => reject(new Error('Failed to read file'));
+                    reader.readAsText(file);
+                });
+            }
+
+            validateJsonStructure(data) {
+                // Basic validation - check for required properties
+                return data && 
+                       typeof data === 'object' && 
+                       (data.chapterMetadata || data.sections || data.title);
+            }
+
+            async loadData(fileName) {
+                try {
+                    console.log(`🔄 Loading data from ${fileName}...`);
+                    
+                    const response = await fetch(`./${fileName}`);
+                    
+                    if (!response.ok) {
+                        throw new Error(`File not found: ${fileName} (Status: ${response.status})`);
+                    }
+                    
+                    const jsonData = await response.json();
+                    
+                    if (!this.validateJsonStructure(jsonData)) {
+                        throw new Error('Invalid JSON structure in the loaded file');
+                    }
+
+                    this.chapterData = jsonData;
+                    this.currentFileName = fileName;
+                    
+                    // Update UI
+                    this.updateCurrentFile(fileName);
+                    this.updateSubtitle();
+                    this.renderNavigation();
+                    this.renderOverview();
+                    
+                    this.showMessage(`✅ Successfully loaded ${fileName}`, 'success');
+                    console.log('✅ Data loaded successfully:', jsonData);
+                    
+                } catch (error) {
+                    console.error('❌ Error loading data:', error);
+                    this.showLoadingError(error.message, fileName);
+                }
+            }
+
+            updateCurrentFile(fileName) {
+                document.getElementById('currentFile').textContent = `📄 ${fileName}`;
+            }
+
+            updateSubtitle() {
+                const subtitle = document.getElementById('chapterTitle');
+                if (this.chapterData) {
+                    const title = this.chapterData.chapterMetadata?.title || 
+                                 this.chapterData.title || 
+                                 'Study Material';
+                    subtitle.textContent = title;
+                } else {
+                    subtitle.textContent = 'No content loaded';
+                }
+            }
+
+            showMessage(message, type = 'success') {
+    const messageEl = document.createElement('div');
+    messageEl.className = type + ' celebration';
+    messageEl.textContent = message;
+    messageEl.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        z-index: 1001;
+        max-width: 300px;
+        animation: popIn 0.5s ease-out;
+    `;
+    
+    document.body.appendChild(messageEl);
+    
+    // Add sparkles for success messages
+    if (type === 'success') {
+        setTimeout(() => this.createSparkles(messageEl), 200);
+    }
+    
+    setTimeout(() => {
+        if (messageEl.parentNode) {
+            messageEl.style.animation = 'fadeOut 0.3s ease-in forwards';
+            setTimeout(() => messageEl.remove(), 300);
+        }
+    }, 3000);
+}
+            showLoadingError(message, fileName) {
+                const contentArea = document.getElementById('contentArea');
+                const navigation = document.getElementById('navigation');
+                
+                contentArea.innerHTML = `
+                    <div class="error">
+                        <h2>⚠ Unable to Load File</h2>
+                        <p><strong>File:</strong> ${fileName}</p>
+                        <p><strong>Error:</strong> ${message}</p>
+                        <div style="margin-top: 20px;">
+                            <button class="btn btn-primary" onclick="app.showFileUpload()">📁 Upload Different File</button>
+                            <button class="btn btn-secondary" onclick="app.loadFromUrl()">🔄 Try Different URL</button>
+                        </div>
+                        <div style="margin-top: 15px; font-size: 14px; color: #718096;">
+                            <p>Make sure your JSON file:</p>
+                            <ul style="text-align: left; margin-top: 10px;">
+                                <li>Is properly formatted JSON</li>
+                                <li>Contains valid chapter data structure</li>
+                                <li>Is accessible from the current location</li>
+                            </ul>
+                        </div>
+                    </div>
+                `;
+                
+                navigation.innerHTML = `
+                    <div class="loading">
+                        <p>Load a valid JSON file to see navigation</p>
+                    </div>
+                `;
+            }
+
+            renderNavigation() {
+                if (!this.chapterData) return;
+
+                const nav = document.getElementById('navigation');
+                
+                const navItems = [
+                    {
+                        title: 'Overview',
+                        key: 'overview',
+                        hasDropdown: false
+                    },
+                    {
+                        title: 'Learning Objectives',
+                        key: 'objectives',
+                        hasDropdown: false,
+                        available: this.chapterData.chapterMetadata?.learningObjectives
+                    },
+                    {
+                        title: 'Sections',
+                        key: 'sections',
+                        hasDropdown: true,
+                        items: this.chapterData.sections ? this.chapterData.sections.map((section, index) => ({
+                            title: section.title || `Section ${index + 1}`,
+                            key: `section-${index}`
+                        })) : [],
+                        available: this.chapterData.sections?.length > 0
+                    },
+                    {
+                        title: 'Key Concepts',
+                        key: 'concepts',
+                        hasDropdown: true,
+                        items: this.getAllConcepts().map((concept, index) => ({
+                            title: concept.name || `Concept ${index + 1}`,
+                            key: `concept-${index}`
+                        })),
+                        available: this.getAllConcepts().length > 0
+                    },
+                    {
+                        title: 'Examples',
+                        key: 'examples',
+                        hasDropdown: false,
+                        available: this.getAllExamples().length > 0
+                    },
+                    {
+                        title: 'Exercises',
+                        key: 'exercises',
+                        hasDropdown: false,
+                        available: this.getAllExercises().length > 0
+                    },
+                    {
+                        title: 'Vocabulary',
+                        key: 'vocabulary',
+                        hasDropdown: false,
+                        available: this.chapterData.teachingResources?.keyVocabulary
+                    },
+                    {
+                        title: 'Applications',
+                        key: 'applications',
+                        hasDropdown: false,
+                        available: this.chapterData.practicalApplications
+                    }
+                ];
+
+                // Filter available items
+                const availableItems = navItems.filter(item => 
+                    item.available !== false && (item.available === undefined || item.available)
+                );
+
+                nav.innerHTML = availableItems.map(item => this.createNavItem(item)).join('');
+            }
+
+            createNavItem(item) {
+                if (!item.hasDropdown) {
+                    return `
+                        <div class="nav-item">
+                            <button class="nav-button" onclick="app.showContent('${item.key}')">
+                                ${item.title}
+                            </button>
+                        </div>
+                    `;
+                }
+
+                if (!item.items || item.items.length === 0) {
+                    return ''; // Don't show empty dropdowns
+                }
+
+                return `
+                    <div class="nav-item">
+                        <button class="nav-button" onclick="app.toggleDropdown('${item.key}')">
+                            ${item.title}
+                            <span class="dropdown-icon" id="icon-${item.key}">▼</span>
+                        </button>
+                        <div class="dropdown-content" id="dropdown-${item.key}">
+                            ${item.items.map(subItem => `
+                                <div class="dropdown-item" onclick="app.showContent('${subItem.key}')">
+                                    ${subItem.title}
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+
+            toggleDropdown(key) {
+                const dropdown = document.getElementById(`dropdown-${key}`);
+                const icon = document.getElementById(`icon-${key}`);
+                
+                if (dropdown && icon) {
+                    dropdown.classList.toggle('open');
+                    icon.classList.toggle('rotated');
+                }
+            }
+
+            showContent(key) {
+                if (!this.chapterData) {
+                    this.showLoadingError('No chapter data loaded', this.currentFileName);
+                    return;
+                }
+
+                this.currentSection = key;
+                
+                // Update active states
+                document.querySelectorAll('.nav-button').forEach(btn => btn.classList.remove('active'));
+                document.querySelectorAll('.dropdown-item').forEach(item => item.classList.remove('active'));
+                
+                const element = document.querySelector(`[onclick="app.showContent('${key}')"]`);
+                if (element) element.classList.add('active');
+
+                // Render content based on key
+                try {
+                    if (key === 'overview') this.renderOverview();
+                    else if (key === 'objectives') this.renderObjectives();
+                    else if (key.startsWith('section-')) this.renderSection(parseInt(key.split('-')[1]));
+                    else if (key.startsWith('concept-')) this.renderConcept(parseInt(key.split('-')[1]));
+                    else if (key === 'examples') this.renderExamples();
+                    else if (key === 'exercises') this.renderExercises();
+                    else if (key === 'vocabulary') this.renderVocabulary();
+                    else if (key === 'applications') this.renderApplications();
+                    else this.renderOverview(); // Default fallback
+                } catch (error) {
+                    console.error('Error rendering content:', error);
+                    this.showContentError(`Error displaying content for ${key}: ${error.message}`);
+                }
+            }
+
+            showContentError(message) {
+                document.getElementById('contentArea').innerHTML = `
+                    <div class="error">
+                        <h2>⚠ Content Error</h2>
+                        <p>${message}</p>
+                        <button class="btn btn-primary" onclick="app.showContent('overview')">🏠 Go to Overview</button>
+                    </div>
+                `;
+            }
+
+            renderOverview() {
+    const metadata = this.chapterData?.chapterMetadata || {};
+    const title = metadata.title || this.chapterData?.title || 'Study Material';
+    
+    const content = `
+        <div class="content-header">
+            <h1 class="content-title celebration">${title}</h1>
+            <div class="content-meta">
+                ${metadata.subject ? `<span class="meta-item">📚 ${metadata.subject}</span>` : ''}
+                ${metadata.grade ? `<span class="meta-item">🎯 Grade ${metadata.grade}</span>` : ''}
+                ${metadata.strand ? `<span class="meta-item">🧪 ${metadata.strand}</span>` : ''}
+            </div>
+            <p class="section-content">
+                ${metadata.description || 'Comprehensive study material loaded from your JSON file.'}
+            </p>
+        </div>
+
+        ${metadata.ncertScientificProcess ? `
+            <div class="concept-card">
+                <h3 class="concept-title">🧠 Scientific Process Approach</h3>
+                ${metadata.ncertScientificProcess.problemSolving ? `
+                    <p class="concept-description">
+                        <strong>Problem Solving:</strong> ${metadata.ncertScientificProcess.problemSolving}
+                    </p>
+                ` : ''}
+                ${metadata.ncertScientificProcess.progressiveApproach ? `
+                    <p class="concept-description">
+                        <strong>Progressive Learning:</strong> ${metadata.ncertScientificProcess.progressiveApproach}
+                    </p>
+                ` : ''}
+            </div>
+        ` : ''}
+
+        ${metadata.prerequisites ? `
+            <div class="concept-card">
+                <h3 class="concept-title">📋 Prerequisites</h3>
+                <div class="concept-properties">
+                    ${metadata.prerequisites.map(prereq => 
+                        `<div class="property-item">• ${prereq}</div>`
+                    ).join('')}
+                </div>
+            </div>
+        ` : ''}
+
+        <div class="concept-card">
+            <h3 class="concept-title">📊 Content Summary</h3>
+            <div class="concept-properties">
+                <div class="property-item">📖 Sections: ${this.chapterData.sections?.length || 0}</div>
+                <div class="property-item">🔑 Key Concepts: ${this.getAllConcepts().length}</div>
+                <div class="property-item">💡 Examples: ${this.getAllExamples().length}</div>
+                <div class="property-item">✏ Exercises: ${this.getAllExercises().length}</div>
+            </div>
+        </div>
+    `;
+    
+    document.getElementById('contentArea').innerHTML = content;
+    
+    // Add study buddies and sparkle effects
+    setTimeout(() => {
+        this.createStudyBuddies();
+        const cards = document.querySelectorAll('.concept-card');
+        cards.forEach((card, index) => {
+            setTimeout(() => {
+                this.createSparkles(card);
+            }, index * 500);
+        });
+    }, 500);
+}
+            renderObjectives() {
+                const objectives = this.chapterData?.chapterMetadata?.learningObjectives || [];
+                
+                if (objectives.length === 0) {
+                    document.getElementById('contentArea').innerHTML = `
+                        <div class="content-header">
+                            <h1 class="content-title">🎯 Learning Objectives</h1>
+                            <p class="section-content">No learning objectives found in the current data file.</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                const content = `
+                    <div class="content-header">
+                        <h1 class="content-title">🎯 Learning Objectives</h1>
+                        <p class="section-content">
+                            By the end of this material, you will be able to achieve the following learning outcomes:
+                        </p>
+                    </div>
+
+                    <div class="objectives-grid">
+                        ${objectives.map((objective, index) => `
+                            <div class="objective-item">
+                                <strong>${index + 1}.</strong> ${objective}
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+                
+                document.getElementById('contentArea').innerHTML = content;
+            }
+
+            renderSection(index) {
+                const section = this.chapterData?.sections?.[index];
+                if (!section) {
+                    this.showContentError(`Section ${index + 1} not found`);
+                    return;
+                }
+                
+                const content = `
+                    <div class="content-header">
+                        <h1 class="content-title">${section.title || `Section ${index + 1}`}</h1>
+                        ${section.summary ? `<p class="section-content">${section.summary}</p>` : ''}
+                    </div>
+
+                    ${section.keyConcepts && section.keyConcepts.length > 0 ? `
+                        <h2>🔑 Key Concepts</h2>
+                        ${section.keyConcepts.map(concept => this.renderConceptCard(concept)).join('')}
+                    ` : ''}
+
+                    ${section.examples && section.examples.length > 0 ? `
+                        <h2>💡 Examples</h2>
+                        ${section.examples.map(example => `
+                            <div class="example-box">
+                                <div class="example-title">Example</div>
+                                <p>${example.content || example.description || 'Example content'}</p>
+                                ${example.context ? `<p><em>Context: ${example.context}</em></p>` : ''}
+                            </div>
+                        `).join('')}
+                    ` : ''}
+
+                    ${section.exercises && section.exercises.length > 0 ? `
+                        <h2>✏ Practice Exercises</h2>
+                        ${section.exercises.map(exercise => `
+                            <div class="exercise-card">
+                                ${exercise.type ? `<span class="exercise-type">${exercise.type}</span>` : ''}
+                                <p><strong>Problem:</strong> ${exercise.problem || exercise.question || 'Exercise content'}</p>
+                                ${exercise.difficulty ? `<p><strong>Difficulty:</strong> ${exercise.difficulty}</p>` : ''}
+                                ${exercise.skillTargeted ? `<p><strong>Skills Targeted:</strong> ${exercise.skillTargeted}</p>` : ''}
+                            </div>
+                        `).join('')}
+                    ` : ''}
+                `;
+                
+                document.getElementById('contentArea').innerHTML = content;
+            }
+
+            renderConceptCard(concept) {
+                return `
+                    <div class="concept-card">
+                        <h3 class="concept-title">${concept.name || 'Concept'}</h3>
+                        ${concept.description ? `<p class="concept-description">${concept.description}</p>` : ''}
+                        
+                        ${concept.notation ? `
+                            <div class="formula-box">${concept.notation}</div>
+                        ` : ''}
+                        
+                        ${concept.properties && concept.properties.length > 0 ? `
+                            <div class="concept-properties">
+                                ${concept.properties.map(prop => `<div class="property-item">${prop}</div>`).join('')}
+                            </div>
+                        ` : ''}
+                        
+                        ${concept.examples && concept.examples.length > 0 ? `
+                            <div class="example-box">
+                                <div class="example-title">Examples</div>
+                                ${concept.examples.map(example => `<div class="formula-box">${example}</div>`).join('')}
+                            </div>
+                        ` : ''}
+
+                        ${concept.balancingSteps ? this.renderBalancingSteps(concept.balancingSteps) : ''}
+                    </div>
+                `;
+            }
+
+            renderBalancingSteps(steps) {
+                if (!steps.steps || !Array.isArray(steps.steps)) return '';
+                
+                return `
+                    <div class="steps-container">
+                        <h4>📝 ${steps.method || 'Steps'}</h4>
+                        ${steps.steps.map(step => `
+                            <div class="step-item">
+                                <div class="step-header">
+                                    <div class="step-number">${step.stepNumber || '•'}</div>
+                                    <div class="step-title">${step.title || 'Step'}</div>
+                                </div>
+                                ${step.description ? `<p class="concept-description">${step.description}</p>` : ''}
+                                ${step.example ? `<div class="formula-box">${typeof step.example === 'string' ? step.example : JSON.stringify(step.example, null, 2)}</div>` : ''}
+                                ${step.note ? `<p><em>Note: ${step.note}</em></p>` : ''}
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+            }
+
+            renderConcept(index) {
+                const concepts = this.getAllConcepts();
+                const concept = concepts[index];
+                
+                if (!concept) {
+                    this.showContentError(`Concept ${index + 1} not found`);
+                    return;
+                }
+                
+                const content = `
+                    <div class="content-header">
+                        <h1 class="content-title">${concept.name || `Concept ${index + 1}`}</h1>
+                    </div>
+                    ${this.renderConceptCard(concept)}
+                `;
+                
+                document.getElementById('contentArea').innerHTML = content;
+            }
+
+            renderExamples() {
+                const examples = this.getAllExamples();
+                
+                if (examples.length === 0) {
+                    document.getElementById('contentArea').innerHTML = `
+                        <div class="content-header">
+                            <h1 class="content-title">💡 Examples</h1>
+                            <p class="section-content">No examples found in the current data file.</p>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                const content = `
+                    <div class="content-header">
+                        <h1 class="content-title">💡 All Examples</h1>
+                        <p class="section-content">
+                            Comprehensive collection of examples from all sections.
+                        </p>
+                    </div>
+
+                    ${examples.map((example, index) => `
+                        <div class="example-box">
+                            <div class="example-title">Example ${index + 1}</div>
+                            <p>${example.content || example.description || 'Example content'}</p>
+                            ${example.context ? `<p><em>Context: ${example.context}</em></p>` : ''}
+                        </div>
+                    `).join('')}
+                `;
+                
+                document.getElementById('contentArea').innerHTML = content;
+            }
+
+            renderExercises() {
+                const exercises = this.getAllExercises();
+                
+                if (exercises.length === 0) {
+                    document.getElementById('contentArea').innerHTML = `
+                        <div class="content-header">
+                            <h1 class="content-title">✏ Exercises</h1>
+                            <p class="section-content">No exercises found in the current data file.</p>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                const content = `
+                    <div class="content-header">
+                        <h1 class="content-title">✏ Practice Exercises</h1>
+                        <p class="section-content">
+                            Test your understanding with these exercises.
+                        </p>
+                    </div>
+
+                    ${exercises.map((exercise, index) => `
+                        <div class="exercise-card">
+                            ${exercise.type ? `<span class="exercise-type">${exercise.type}</span>` : ''}
+                            <p><strong>Problem ${index + 1}:</strong> ${exercise.problem || exercise.question || 'Exercise content'}</p>
+                            ${exercise.difficulty ? `<p><strong>Difficulty:</strong> ${exercise.difficulty}</p>` : ''}
+                            ${exercise.skillTargeted ? `<p><strong>Skills Targeted:</strong> ${exercise.skillTargeted}</p>` : ''}
+                        </div>
+                    `).join('')}
+
+                    ${this.chapterData?.teachingResources?.assessmentIdeas ? `
+                        <h2>📋 Assessment Questions</h2>
+                        ${this.chapterData.teachingResources.assessmentIdeas.map((assessment, index) => `
+                            <div class="exercise-card">
+                                <span class="exercise-type">${assessment.questionType || 'Question'}</span>
+                                <p><strong>Question ${index + 1}:</strong> ${assessment.question}</p>
+                                ${assessment.answer ? `
+                                    <details style="margin-top: 10px;">
+                                        <summary style="cursor: pointer; font-weight: 600;">View Answer</summary>
+                                        <p style="margin-top: 8px; padding: 10px; background: #f0f9ff; border-radius: 4px;">${assessment.answer}</p>
+                                    </details>
+                                ` : ''}
+                            </div>
+                        `).join('')}
+                    ` : ''}
+                `;
+                
+                document.getElementById('contentArea').innerHTML = content;
+            }
+
+            renderVocabulary() {
+                const vocabulary = this.chapterData?.teachingResources?.keyVocabulary || [];
+                
+                if (vocabulary.length === 0) {
+                    document.getElementById('contentArea').innerHTML = `
+                        <div class="content-header">
+                            <h1 class="content-title">📖 Vocabulary</h1>
+                            <p class="section-content">No vocabulary terms found in the current data file.</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                const content = `
+                    <div class="content-header">
+                        <h1 class="content-title">📖 Key Vocabulary</h1>
+                        <p class="section-content">
+                            Essential terms and definitions for understanding the material.
+                        </p>
+                    </div>
+
+                    <div class="vocabulary-grid">
+                        ${vocabulary.map(vocab => `
+                            <div class="vocab-card">
+                                <div class="vocab-term">${vocab.term}</div>
+                                <p class="concept-description">${vocab.definition}</p>
+                                ${vocab.symbol ? `<p><em>Symbol: ${vocab.symbol}</em></p>` : ''}
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+                
+                document.getElementById('contentArea').innerHTML = content;
+            }
+
+            renderApplications() {
+                const applications = this.chapterData?.practicalApplications || [];
+                
+                if (applications.length === 0) {
+                    document.getElementById('contentArea').innerHTML = `
+                        <div class="content-header">
+                            <h1 class="content-title">🌍 Applications</h1>
+                            <p class="section-content">No practical applications found in the current data file.</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                const content = `
+                    <div class="content-header">
+                        <h1 class="content-title">🌍 Practical Applications</h1>
+                        <p class="section-content">
+                            Discover how this material applies to real-world situations.
+                        </p>
+                    </div>
+
+                    ${applications.map(application => `
+                        <div class="concept-card">
+                            <h3 class="concept-title">🏭 ${application.context}</h3>
+                            <p class="concept-description">${application.description}</p>
+                        </div>
+                    `).join('')}
+                `;
+                
+                document.getElementById('contentArea').innerHTML = content;
+            }
+
+            getAllConcepts() {
+                if (!this.chapterData?.sections) return [];
+                
+                const concepts = [];
+                this.chapterData.sections.forEach(section => {
+                    if (section.keyConcepts && Array.isArray(section.keyConcepts)) {
+                        concepts.push(...section.keyConcepts);
+                    }
+                });
+                return concepts;
+            }
+
+            getAllExamples() {
+                if (!this.chapterData?.sections) return [];
+                
+                const examples = [];
+                this.chapterData.sections.forEach(section => {
+                    if (section.examples && Array.isArray(section.examples)) {
+                        examples.push(...section.examples);
+                    }
+                });
+                return examples;
+            }
+
+            getAllExercises() {
+                if (!this.chapterData?.sections) return [];
+                
+                const exercises = [];
+                this.chapterData.sections.forEach(section => {
+                    if (section.exercises && Array.isArray(section.exercises)) {
+                        exercises.push(...section.exercises);
+                    }
+                });
+                return exercises;
+            }
+
+            filterContent() {
+                // Search functionality can be implemented here
+                if (!this.searchTerm) {
+                    this.showContent(this.currentSection);
+                    return;
+                }
+                console.log('🔍 Searching for:', this.searchTerm);
+            }
+        }
+
+        // Initialize the app when the page loads
+        let app;
+        document.addEventListener('DOMContentLoaded', () => {
+            app = new StudyApp();
+        });
+
+        // Add CSS animation for messages
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes slideIn {
+                from { transform: translateX(100%); opacity: 0; }
+                to { transform: translateX(0); opacity: 1; }
+            }
+        `;
+        document.head.appendChild(style);
+    </script>
+</body>
+</html>

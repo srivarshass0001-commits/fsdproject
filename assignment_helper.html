@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Assignment Helper — College Chatbot</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+<style>
+:root{
+  --bg:#f0f4ff; --card:#ffffff; --accent:#7c3aed; --accent2:#3b82f6; --muted:#4b5563; --glass:rgba(255,255,255,0.7);
+  --correct:#10b981; --wrong:#ef4444; --highlight:#fbbf24; --user-msg:#fef3c7; --bot-msg:#ffffff;
+}
+*{box-sizing:border-box}
+body{font-family:Inter,system-ui,Segoe UI,Roboto,Arial;margin:0;background:linear-gradient(135deg,#c7d2fe,#e0f2fe);color:#111827;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;font-size:18px;line-height:1.6;transition: all 0.3s ease;}
+.container{width:100%;max-width:980px;background:var(--card);border-radius:12px;overflow:hidden;box-shadow:0 15px 35px rgba(0,0,0,0.2);border:1px solid rgba(0,0,0,0.05);transition: all 0.3s ease;}
+header{display:flex;gap:16px;align-items:center;padding:20px 24px;border-bottom:2px solid var(--accent);}
+.logo{width:64px;height:64px;border-radius:16px;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;font-weight:700;color:white;font-size:22px;box-shadow:0 4px 10px rgba(0,0,0,0.2);}
+h1{font-size:26px;margin:0;color:var(--accent2);}
+p.lead{margin:0;color:var(--muted);font-size:16px}
+.main{display:flex;gap:24px;padding:20px}
+.sidebar{width:300px;padding:20px;background:linear-gradient(135deg,#e0f2fe,#fff);border-radius:12px;font-size:16px;border:1px solid rgba(0,0,0,0.06);box-shadow:0 5px 15px rgba(0,0,0,0.1);}
+.field{margin-bottom:16px}
+label{display:block;font-size:14px;color:var(--muted);margin-bottom:6px;font-weight:500;}
+input[type=text], select{width:100%;padding:12px;border-radius:12px;border:1px solid rgba(0,0,0,0.2);background:var(--glass);color:#111827;font-size:16px;box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);}
+.chat{flex:1;display:flex;flex-direction:column;gap:16px;font-size:16px}
+.messages{flex:1;padding:20px;background:linear-gradient(135deg,#f0f4ff,#ffffff);border-radius:12px;overflow:auto;min-height:360px;font-size:16px;box-shadow: inset 0 2px 5px rgba(0,0,0,0.05);}
+.msg{padding:14px 16px;border-radius:12px;margin-bottom:12px;max-width:85%;font-size:16px;transition: all 0.3s ease;}
+.msg.user{background:var(--user-msg);align-self:flex-end;color:#111827;box-shadow:0 4px 8px rgba(0,0,0,0.1);}
+.msg.bot{background:var(--bot-msg);border:1px solid #e5e7eb;align-self:flex-start;color:#111827;box-shadow:0 4px 8px rgba(0,0,0,0.05);}
+.controls{display:flex;gap:12px;margin-top:8px;flex-wrap:wrap}
+.btn{background:linear-gradient(135deg,var(--accent),var(--accent2));border:none;padding:12px 16px;border-radius:12px;color:white;font-weight:600;cursor:pointer;font-size:16px;transition: all 0.3s ease;box-shadow:0 4px 10px rgba(0,0,0,0.15);}
+.btn:hover{transform: translateY(-2px);box-shadow:0 6px 15px rgba(0,0,0,0.2);}
+.btn.secondary{background:linear-gradient(135deg,#fff,#e0f2fe);border:1px solid var(--accent2);color:var(--accent2);}
+.btn.secondary:hover{background:linear-gradient(135deg,#dbeafe,#bae6fd);}
+.note{font-size:14px;color:var(--muted);margin-top:10px}
+footer{padding:14px 24px;border-top:2px solid var(--accent);font-size:14px;color:var(--muted)}
+.small-meta{font-size:14px;color:var(--muted);margin-bottom:8px}
+.quiz-question{margin-bottom:12px;padding:14px;border-radius:12px;background:#fef3c7;box-shadow:0 3px 8px rgba(0,0,0,0.1);}
+.quiz-option{margin:6px 0;padding:8px 12px;border-radius:8px;border:1px solid #ddd;cursor:pointer;display:flex;align-items:center;transition:all 0.2s ease;}
+.quiz-option:hover{background:#fcd34d;}
+.quiz-option.correct{background:var(--correct);color:white;border-color:var(--correct);}
+.quiz-option.wrong{background:var(--wrong);color:white;border-color:var(--wrong);}
+@media(max-width:880px){.main{flex-direction:column}.sidebar{width:100%}}
+</style>
+</head>
+<body>
+<div class="container">
+<header>
+<div class="logo">AH</div>
+<div>
+<h1>Assignment Helper — College Chatbot</h1>
+<p class="lead">Fast, structured help for essays, labs, projects, and code assignments.</p>
+</div>
+</header>
+
+<div class="main">
+<aside class="sidebar">
+<div class="small-meta">Session settings</div>
+<div class="field">
+<label>Course / Subject</label>
+<input id="course" type="text" placeholder="e.g., Data Structures" />
+</div>
+<div class="field">
+<label>Assignment type</label>
+<select id="atype">
+<option>Essay / Report</option>
+<option>Programming / Code</option>
+<option>Lab / Practical</option>
+<option>Project / Presentation</option>
+<option>Math / Proof</option>
+</select>
+</div>
+<div class="field">
+<label>Deadline</label>
+<input id="deadline" type="text" placeholder="e.g., 2025-10-02 or 'in 5 days'" />
+</div>
+<div class="field">
+<label>Word count / Length</label>
+<input id="length" type="text" placeholder="e.g., 1200 words or 10 slides" />
+</div>
+<div class="field">
+<label>Citation style</label>
+<select id="cstyle"><option>APA</option><option>IEEE</option><option>MLA</option><option>Chicago</option><option>None</option></select>
+</div>
+</aside>
+
+<section class="chat">
+<div class="messages" id="messages" aria-live="polite"></div>
+
+<div class="controls">
+<button class="btn" id="send">Ask Assignment Helper</button>
+<button class="btn secondary" id="plan">Generate Action Plan</button>
+<button class="btn secondary" id="quiz">Generate Quiz</button>
+<button class="btn secondary" id="clear">Clear</button>
+<button class="btn secondary" id="download">Download PDF</button>
+</div>
+<div class="note">By using this tool you confirm you'll follow your institution's academic integrity policy. The assistant gives guidance, outlines, examples and references — not direct submissions.</div>
+</section>
+</div>
+
+<footer>Made for college students • The assistant will request clarifying questions when needed and can provide outlines, citations, code snippets, study plan and grading-rubric alignment.</footer>
+</div>
+
+<script>
+const API_URL = "https://chat.ivislabs.in";
+const API_KEY = "sk-fa739ed9ed404e238962f58ac6682644";
+
+const messagesEl = document.getElementById('messages');
+
+function appendMessage(text, who='bot'){
+  const div=document.createElement('div');
+  div.className='msg '+(who==='user'?'user':'bot');
+  div.innerHTML=marked.parse(text);
+  messagesEl.appendChild(div);
+  messagesEl.scrollTop=messagesEl.scrollHeight;
+}
+
+function buildUserPrompt(planOnly=false){
+  const course=document.getElementById('course').value.trim();
+  const atype=document.getElementById('atype').value;
+  const deadline=document.getElementById('deadline').value.trim();
+  const length=document.getElementById('length').value.trim();
+  const cstyle=document.getElementById('cstyle').value;
+  let meta=[];
+  if(course) meta.push(`Course: ${course}`);
+  if(atype) meta.push(`Type: ${atype}`);
+  if(deadline) meta.push(`Deadline: ${deadline}`);
+  if(length) meta.push(`Length: ${length}`);
+  if(cstyle && cstyle!=='None') meta.push(`Citation style: ${cstyle}`);
+  const metaText=meta.length?('[Assignment metadata]\n'+meta.join('\n')):'';
+  let userPrompt=`${metaText}\n\nPlease first produce a concise outline, then a detailed solution. Include references.`;
+  if(planOnly) userPrompt+="\n\nAlso provide a milestone-based action plan (with dates relative to the deadline if given).";
+  return userPrompt;
+}
+
+async function sendRequest(userText){
+  appendMessage(userText,'user');
+  appendMessage('Thinking…','bot');
+  const payload={model:'llama3.2:latest',messages:[{role:'system',content:'You are Assignment Helper: a helpful and academically responsible assistant for college students.'},{role:'user',content:userText}],temperature:0.25,max_tokens:2000};
+  try{
+    const headers={'Content-Type':'application/json','Authorization':`Bearer ${API_KEY}`};
+    const res=await axios.post(`${API_URL}/api/chat/completions`,payload,{headers});
+    const botPlaceholders=Array.from(messagesEl.querySelectorAll('.msg.bot'));
+    const lastBot=botPlaceholders[botPlaceholders.length-1];
+    if(lastBot) lastBot.remove();
+    let reply='';
+    if(res.data?.choices?.length) reply=res.data.choices[0].message?.content||res.data.choices[0].text;
+    else reply=res.data?.response||JSON.stringify(res.data);
+    appendMessage(reply,'bot');
+  }catch(err){
+    console.error(err);
+    const msg=err.response?.data?JSON.stringify(err.response.data):err.message;
+    const botPlaceholders=Array.from(messagesEl.querySelectorAll('.msg.bot'));
+    const lastBot=botPlaceholders[botPlaceholders.length-1];
+    if(lastBot) lastBot.remove();
+    appendMessage('Error: '+msg,'bot');
+  }
+}
+
+document.getElementById('send').addEventListener('click', async ()=>{await sendRequest(buildUserPrompt());});
+document.getElementById('clear').addEventListener('click', ()=>{messagesEl.innerHTML='';});
+document.getElementById('plan').addEventListener('click', async ()=>{await sendRequest(buildUserPrompt(true));});
+
+// =================== QUIZ ===================
+document.getElementById('quiz').addEventListener('click', async ()=>{
+  const course=document.getElementById('course').value.trim();
+  if(!course){alert('Please enter a course/subject first!');return;}
+  messagesEl.innerHTML='';
+  appendMessage('Generating quiz for '+course+'...','bot');
+  const prompt=`Generate 5 multiple choice questions on the topic "${course}". For each question, provide 4 options and indicate the correct answer. Return ONLY a JSON array:
+[
+  {"q":"Question text","opts":["opt1","opt2","opt3","opt4"],"answer":index_of_correct_option}
+]`;
+
+  try{
+    const payload={model:'llama3.2:latest',messages:[{role:'system',content:'You are a helpful assistant that returns only JSON.'},{role:'user',content:prompt}],temperature:0.3,max_tokens:1500};
+    const headers={'Content-Type':'application/json','Authorization':`Bearer ${API_KEY}`};
+    const res=await axios.post(`${API_URL}/api/chat/completions`,payload,{headers});
+    let text=res.data?.choices?.[0]?.message?.content||'[]';
+    text=text.replace(/```json|```/g,'').trim();
+    let quizData=[];
+    try{quizData=JSON.parse(text);}catch(e){console.error(e);alert("Failed to parse quiz JSON.");return;}
+
+    let currentIndex = 0;
+    const quizDiv=document.createElement('div'); quizDiv.className='msg bot';
+    const title=document.createElement('h3'); title.innerText=`Quiz - ${course}`; quizDiv.appendChild(title);
+    const questionDiv=document.createElement('div'); quizDiv.appendChild(questionDiv);
+
+    const navDiv=document.createElement('div'); navDiv.style.marginTop='10px'; quizDiv.appendChild(navDiv);
+    const prevBtn=document.createElement('button'); prevBtn.className='btn secondary'; prevBtn.innerText='Previous';
+    const nextBtn=document.createElement('button'); nextBtn.className='btn secondary'; nextBtn.innerText='Next';
+    const submitBtn=document.createElement('button'); submitBtn.className='btn'; submitBtn.innerText='Submit'; submitBtn.style.display='none';
+    navDiv.appendChild(prevBtn); navDiv.appendChild(nextBtn); navDiv.appendChild(submitBtn);
+
+    function showQuestion(index){
+      questionDiv.innerHTML='';
+      const item=quizData[index];
+      const qBlock=document.createElement('div'); qBlock.className='quiz-question';
+      const qTitle=document.createElement('div'); qTitle.innerHTML=`<strong>Q${index+1}. ${item.q}</strong>`; qBlock.appendChild(qTitle);
+      item.opts.forEach((opt,j)=>{
+        const optEl=document.createElement('label'); optEl.className='quiz-option';
+        optEl.innerHTML=`<input type="radio" name="q${index}" value="${j}" style="margin-right:8px"> ${opt}`;
+        const prev=quizData[index].selected;
+        if(prev===j) optEl.querySelector('input').checked=true;
+        qBlock.appendChild(optEl);
+      });
+      questionDiv.appendChild(qBlock);
+
+      prevBtn.style.display=index===0?'none':'inline-block';
+      nextBtn.style.display=index===quizData.length-1?'none':'inline-block';
+      submitBtn.style.display=index===quizData.length-1?'inline-block':'none';
+    }
+
+    prevBtn.onclick=()=>{
+      const sel=document.querySelector(`input[name="q${currentIndex}"]:checked`);
+      quizData[currentIndex].selected=sel?parseInt(sel.value):null;
+      if(currentIndex>0){currentIndex--; showQuestion(currentIndex);}
+    };
+    nextBtn.onclick=()=>{
+      const sel=document.querySelector(`input[name="q${currentIndex}"]:checked`);
+      quizData[currentIndex].selected=sel?parseInt(sel.value):null;
+      if(currentIndex<quizData.length-1){currentIndex++; showQuestion(currentIndex);}
+    };
+    submitBtn.onclick=()=>{
+      let score=0;
+      quizData.forEach((item,i)=>{
+        const selected=item.selected;
+        const options=quizDiv.querySelectorAll(`input[name="q${i}"]`);
+        options.forEach(o=>{
+          const label=o.parentElement;
+          if(parseInt(o.value)===item.answer) label.classList.add('correct');
+        });
+        if(selected===item.answer) score++;
+        else if(selected!==undefined && selected!==item.answer){
+          const selOpt=quizDiv.querySelector(`input[name="q${i}"][value="${selected}"]`);
+          if(selOpt) selOpt.parentElement.classList.add('wrong');
+        }
+      });
+      const scoreEl=document.createElement('div'); scoreEl.style.marginTop='12px'; scoreEl.style.fontWeight='600';
+      scoreEl.innerText=`Your Score: ${score}/${quizData.length}`;
+      quizDiv.appendChild(scoreEl);
+      submitBtn.disabled=true;
+      nextBtn.disabled=true;
+      prevBtn.disabled=true;
+    };
+
+    messagesEl.appendChild(quizDiv);
+    showQuestion(currentIndex);
+    messagesEl.scrollTop=messagesEl.scrollHeight;
+
+  }catch(err){console.error(err);appendMessage('Failed to generate quiz: '+err,'bot');}
+});
+
+// =================== PDF ===================
+document.getElementById('download').addEventListener('click', ()=>{
+  const { jsPDF }=window.jspdf; const doc=new jsPDF(); let y=10;
+  const allMsgs=messagesEl.querySelectorAll('.msg');
+  allMsgs.forEach((m)=>{
+    const text=m.innerText; const split=doc.splitTextToSize(text,180);
+    doc.text(split,10,y); y+=split.length*8;
+    if(y>280){doc.addPage();y=10;}
+  });
+  doc.save("chat.pdf");
+});
+</script>
+</body>
+</html>
